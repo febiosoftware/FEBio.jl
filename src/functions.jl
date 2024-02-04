@@ -3,11 +3,11 @@ using XML
 using GeometryBasics 
 # Functions 
 
-function febiojlDir()
+function febiojl_dir()
     joinpath(@__DIR__, "..")
 end
 
-function febIni()
+function feb_doc_initialize()
     # Define document level
     doc = XML.Document()
 
@@ -43,7 +43,7 @@ struct stepData
     time::Float64
 end
 
-function importFebioLogfile(filename)
+function read_logfile(filename)
     
     f = open(filename,"r")  # Open file in read mode
     nParse = 1    
@@ -87,7 +87,7 @@ function importFebioLogfile(filename)
     return DD
 end
 
-function runMonitorFebio(filename_FEB,FEBIO_PATH="febio")
+function run_febio(filename_FEB,FEBIO_PATH="febio")
     run_filename = filename_FEB
     runCommand = `nice "$FEBIO_PATH" "$run_filename"`
     run(runCommand)

@@ -14,14 +14,14 @@ const FEBIO_PATH = "/home/kevin/FEBioStudio/bin/febio4" # Path to FEBio executab
 # Creating a hexahedral mesh for a cube 
 boxDim = [2,2,2] # Dimensionsions for the box in each direction
 boxEl = [5,5,10] # Number of elements to use in each direction 
-E,V,F,Fb,CFb_type = hexMeshBox(boxDim,boxEl)
+E,V,F,Fb,CFb_type = hexbox(boxDim,boxEl)
 
 # Defining displacement of the top surface in terms of x, y, and z components
 displacement_prescribed = [2,0,2]
 
 ######
 # Define file names
-saveDir = joinpath(febiojlDir(),"assets","temp") # Main directory to save FEBio input and output files
+saveDir = joinpath(febiojl_dir(),"assets","temp") # Main directory to save FEBio input and output files
 if !isdir(saveDir)
     mkdir(saveDir)      
     println("Hello")
@@ -179,11 +179,11 @@ XML.write(filename_FEB, doc)
 
 #######
 # Run FEBio
-runMonitorFebio(filename_FEB,FEBIO_PATH)
+run_febio(filename_FEB,FEBIO_PATH)
 
 #######
 # Import results
-DD = importFebioLogfile(joinpath(saveDir,filename_disp))
+DD = read_logfile(joinpath(saveDir,filename_disp))
 
 #######
 # Visualization
