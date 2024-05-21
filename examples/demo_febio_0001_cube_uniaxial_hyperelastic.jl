@@ -38,7 +38,6 @@ end
 saveDir = joinpath(comododir(),"assets","temp") # Main directory to save FEBio input and output files
 if !isdir(saveDir)
     mkdir(saveDir)      
-    println("Hello")
 end
 
 filename_FEB = joinpath(saveDir,"febioInputFile_01.feb")   # The main FEBio input file
@@ -233,14 +232,6 @@ limits!(ax, (0,sampleSize.*(1+strainApplied)), (0,sampleSize.*(1+strainApplied))
 hp=poly!(M, strokewidth=2,color=nodalColor, transparency=false, overdraw=false,colormap = Reverse(:Spectral),
 colorrange=(0,sqrt(sum(displacement_prescribed.^2))))
 Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
-
-# hb=Button(fig, label = "Start")
-# on(hb.clicks) do n
-#     @async for s ∈  [collect(0:1:length(DD)-1); collect(length(DD)-2:-1:0)]
-#         set_close_to!(hSlider, s)
-#         sleep(0.05)
-#      end   
-# end
 
 slidercontrol(hSlider,ax)
 
