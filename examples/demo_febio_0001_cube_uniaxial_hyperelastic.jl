@@ -35,7 +35,7 @@ end
 
 ######
 # Define file names
-saveDir = joinpath(comododir(),"assets","temp") # Main directory to save FEBio input and output files
+saveDir = joinpath(febiojl_dir(),"assets","temp") # Main directory to save FEBio input and output files
 if !isdir(saveDir)
     mkdir(saveDir)      
 end
@@ -131,6 +131,7 @@ Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
         # aen(Elements_node,"elem",@sprintf("%i, %i, %i, %i, %i, %i, %i, %i",E[q][1],E[q][2],E[q][3],E[q][4],E[q][5],E[q][6],E[q][7],E[q][8]); id = q)
         aen(Elements_node,"elem",join(map(string, E[q]), ','); id = q)
     end
+    
 # Node sets
 Fb_top = Fb[CFb_type.==1]
 Fb_bottom = Fb[CFb_type.==2]
