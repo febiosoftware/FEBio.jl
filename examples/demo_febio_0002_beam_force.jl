@@ -12,17 +12,18 @@ const FEBIO_PATH = "/home/kevin/FEBioStudio/bin/febio4" # Path to FEBio executab
 
 ###### 
 # Control parameters 
-sampleSize = 10.0
-pointSpacing = 2.0
-strainApplied = 0.5 # Equivalent linear strain
-loadingOption ="compression" # "tension" or "compression"
+pointSpacing = 3.0
+appliedForce = (0.0, 0.0, -2e-3) 
 
-E_youngs = 1
-ν =0.4
+# Material parameters
+c1 = 1e-3 #Shear-modulus-like parameter
+m1 = 8  #Material parameter setting degree of non-linearity
+k_factor = 1e2  #Bulk modulus factor 
+k = c1*k_factor #Bulk modulus
 
 ###### 
 # Creating a hexahedral mesh for a cube 
-boxDim = sampleSize.*[1,1,1] # Dimensionsions for the box in each direction
+boxDim = [10.0,40.0,10.0] # Dimensionsions for the box in each direction
 boxEl = ceil.(Int64,boxDim./pointSpacing) # Number of elements to use in each direction 
 E,V,F,Fb,CFb_type = hexbox(boxDim,boxEl)
 
@@ -32,12 +33,8 @@ Fb_bottom = Fb[CFb_type.==2]
 Fb_s1 = Fb[CFb_type.==6]
 Fb_s2 = Fb[CFb_type.==3]
 
-# Defining displacement of the top surface in terms of x, y, and z components
-if loadingOption=="tension"
-    displacement_prescribed = strainApplied*sampleSize
-elseif loadingOption=="compression"
-    displacement_prescribed = -strainApplied*sampleSize
-end
+indNodesBack = elements2indices(Fb[CFb_type.==4])
+indNodesFront = elements2indices(Fb[CFb_type.==3])
 
 ######
 # Define file names
@@ -51,6 +48,7 @@ filename_xplt = joinpath(saveDir,"febioInputFile_01.xplt") # The XPLT file for v
 filename_log = joinpath(saveDir,"febioInputFile_01_LOG.txt") # The log file featuring the full FEBio terminal output stream
 filename_disp = "febioInputFile_01_DISP.txt" # A log file for results saved in same directory as .feb file  e.g. nodal displacements
 filename_stress = "febioInputFile_01_STRESS.txt"
+
 ######
 # Define febio input file XML
 doc,febio_spec_node = feb_doc_initialize()
@@ -119,9 +117,12 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="neo-Hookean")
-    aen(material_node,"E",E_youngs)
-    aen(material_node,"v",ν)
+material_node = aen(Material_node,"material"; id = 1, name="Material1", type="Ogden")
+    aen(material_node,"c1",c1)
+    aen(material_node,"m1",m1)
+    aen(material_node,"c2",c1)
+    aen(material_node,"m2",-m1)
+    aen(material_node,"k",k)
 
 Mesh_node = aen(febio_spec_node,"Mesh")
 
@@ -139,39 +140,24 @@ Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
     end
     
 # Node sets
-bcPrescribeList_z = "bcPrescribeList_z"
-bcSupportList_x = "bcSupportList_x"
-bcSupportList_y = "bcSupportList_y"
-bcSupportList_z = "bcSupportList_z"
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_bottom)],','); name=bcPrescribeList_z)
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s1)],','); name=bcSupportList_x)
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s2)],','); name=bcSupportList_y)
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_top)],','); name=bcSupportList_z)
+bcSupportList = "bcSupportList"
+bcPrescribe = "bcPrescribe"
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodesBack],','); name=bcSupportList)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodesFront],','); name=bcPrescribe)
 
 MeshDomains_node = aen(febio_spec_node, "MeshDomains")
     aen(MeshDomains_node,"SolidDomain"; mat = "Material1", name="Part1")
 
 Boundary_node = aen(febio_spec_node, "Boundary")
 
-bc_node = aen(Boundary_node,"bc"; name="zero_displacement_x", node_set=bcSupportList_x, type="zero displacement")
+bc_node = aen(Boundary_node,"bc"; name="zero_displacement_xyz", node_set=bcSupportList, type="zero displacement")
     aen(bc_node,"x_dof",1)
-    aen(bc_node,"y_dof",0)
-    aen(bc_node,"z_dof",0)
-
-bc_node = aen(Boundary_node,"bc"; name="zero_displacement_y", node_set=bcSupportList_y, type="zero displacement")
-    aen(bc_node,"x_dof",0)
     aen(bc_node,"y_dof",1)
-    aen(bc_node,"z_dof",0)
-
-bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupportList_z, type="zero displacement")
-    aen(bc_node,"x_dof",0)
-    aen(bc_node,"y_dof",0)
     aen(bc_node,"z_dof",1)
 
-bc_node4 = aen(Boundary_node,"bc"; name="prescribed_disp_z", node_set=bcPrescribeList_z, type="prescribed displacement")
-    aen(bc_node4,"dof","z")
-    aen(bc_node4,"value",displacement_prescribed; lc=@sprintf("%i",1))
-    aen(bc_node4,"relative",@sprintf("%i",0))
+Loads_node = aen(febio_spec_node, "Loads")
+load_node = aen(Loads_node,"nodal_load"; name="PrescribedForce", node_set=bcPrescribe, type="nodal_force")
+    aen(load_node,"value",join([@sprintf("%.16e",x) for x ∈ appliedForce./length(bcPrescribe)],','); lc=@sprintf("%i",1))
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
@@ -213,10 +199,20 @@ DD_stress = read_logfile(joinpath(saveDir,filename_stress))
 
 #######
 # Visualization
+linewidth = 6
+strokewidth = 2
+markersize = 20
+
 fig = Figure(size=(800,800))
 
+ax1=Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = "bc's")
+hp1=poly!(ax1,GeometryBasics.Mesh(V,Fb), strokewidth=strokewidth,color=:white, strokecolor=:black, shading = FastShading, transparency=true)
+hp2 = scatter!(ax1,V[indNodesBack],color=:black,markersize=markersize)
+hp2 = scatter!(ax1,V[indNodesFront],color=:red,markersize=markersize)
+
+
 stepRange = 0:1:length(DD)-1
-hSlider = Slider(fig[2, 1], range = stepRange, startvalue = length(DD)-1,linewidth=30)
+hSlider = Slider(fig[2, 2], range = stepRange, startvalue = length(DD)-1,linewidth=30)
 
 nodalColor = lift(hSlider.value) do stepIndex
     norm.(DD[stepIndex].data)
@@ -230,12 +226,12 @@ titleString = lift(hSlider.value) do stepIndex
   "Step: "*string(stepIndex)
 end
 
-ax=Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = titleString)
-limits!(ax, (0,sampleSize.*(1+strainApplied)), (0,sampleSize.*(1+strainApplied)), (0,sampleSize.*(1+strainApplied)))
-hp=poly!(M, strokewidth=2,color=nodalColor, transparency=false, overdraw=false,colormap = Reverse(:Spectral),
-colorrange=(0,sqrt(sum(displacement_prescribed.^2))))
-Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
+ax2=Axis3(fig[1, 2], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = titleString)
 
-slidercontrol(hSlider,ax)
+hp=poly!(ax2,M, strokewidth=2,color=nodalColor, transparency=false, overdraw=false,colormap = Reverse(:Spectral), shading = FastShading)
+Colorbar(fig[1, 3],hp.plots[1],label = "Displacement magnitude [mm]") 
+
+slidercontrol(hSlider,ax2)
 
 fig
+

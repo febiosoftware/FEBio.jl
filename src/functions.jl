@@ -90,6 +90,15 @@ end
 
 function run_febio(filename_FEB,FEBIO_PATH="febio")
     run_filename = filename_FEB
-    runCommand = `nice "$FEBIO_PATH" "$run_filename"`
+    
+    @static if Sys.islinux()
+        runCommand = `nice "$FEBIO_PATH" "$run_filename"`    
+    elseif Sys.isapple()
+        runCommand = `nice "$FEBIO_PATH" "$run_filename"`
+    else
+        runCommand = `"$FEBIO_PATH" "$run_filename"` # runCommand = `start /min "$FEBIO_PATH" "$run_filename"`
+    end
+
+    
     run(runCommand)
 end
