@@ -231,7 +231,22 @@ titleString = lift(hSlider.value) do stepIndex
 end
 
 ax=Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = titleString)
-limits!(ax, (0,sampleSize.*(1+strainApplied)), (0,sampleSize.*(1+strainApplied)), (0,sampleSize.*(1+strainApplied)))
+
+# define limit axis
+min_x = minimum([v[1] for v in V])  #  minimum x-coordinate
+max_x = maximum([v[1] for v in V])  #  minimum y-coordinate
+
+min_y = minimum([v[2] for v in V])  #  minimum x-coordinate
+max_y = maximum([v[2] for v in V])  #  minimum y-coordinate
+
+min_z = minimum([v[3] for v in V])  #  minimum x-coordinate
+max_z = maximum([v[3] for v in V])  #  minimum y-coordinate
+sf = 1.5 # scale factor
+
+limits!(ax, (min_x.*(sf + strainApplied),max_x.*(sf + strainApplied)), 
+(min_y.*(sf + strainApplied),max_y.*(sf + strainApplied)),
+(min_z, max_z.*(sf + strainApplied)))
+
 hp=poly!(M, strokewidth=2,color=nodalColor, transparency=false, overdraw=false,colormap = Reverse(:Spectral),
 colorrange=(0,sqrt(sum(displacement_prescribed.^2))))
 Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
