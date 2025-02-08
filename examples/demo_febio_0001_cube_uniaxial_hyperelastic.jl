@@ -234,13 +234,13 @@ ax=Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", ti
 
 # define limit axis
 min_x = minimum([v[1] for v in V])  #  minimum x-coordinate
-max_x = maximum([v[1] for v in V])  #  minimum y-coordinate
+max_x = maximum([v[1] for v in V])  #  maximum x-coordinate
 
-min_y = minimum([v[2] for v in V])  #  minimum x-coordinate
-max_y = maximum([v[2] for v in V])  #  minimum y-coordinate
+min_y = minimum([v[2] for v in V])  #  minimum y-coordinate
+max_y = maximum([v[2] for v in V])  #  maximum y-coordinate
 
-min_z = minimum([v[3] for v in V])  #  minimum x-coordinate
-max_z = maximum([v[3] for v in V])  #  minimum y-coordinate
+min_z = minimum([v[3] for v in V])  #  minimum z-coordinate
+max_z = maximum([v[3] for v in V])  #  maximum z-coordinate
 sf = 1.5 # scale factor
 
 limits!(ax, (min_x.*(sf + strainApplied),max_x.*(sf + strainApplied)), 
