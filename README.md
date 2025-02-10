@@ -45,6 +45,7 @@ A detailed roadmap is under construction but the below is a list of major compon
 - [ ] Julia based .xplt-file importing 
 - [ ] Ship with or download FEBio binaries upon package adding, and configure with FEBio.jl automatically  
 - [ ] CI, testing, and documentation
+- [ ] Create specialised FEBio visualization tools
 
 # How to contribute? 
 Your help would be greatly appreciated! If you can contribute please do so by posting a pull-request. 
