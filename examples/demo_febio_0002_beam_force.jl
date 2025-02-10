@@ -1,10 +1,10 @@
-using Comodo # https://github.com/COMODO-research/Comodo.jl
+using Comodo
+using Comodo.GeometryBasics
+using Comodo.GLMakie
+using Comodo.LinearAlgebra
 using FEBio
-using Printf
-using GLMakie
-using LinearAlgebra
+using Printf 
 using XML
-using GeometryBasics
 
 ######
 # Set FEBio path here for now
@@ -194,44 +194,47 @@ run_febio(filename_FEB,FEBIO_PATH)
 
 #######
 # Import results
-DD = read_logfile(joinpath(saveDir,filename_disp))
+DD_disp = read_logfile(joinpath(saveDir,filename_disp))
 DD_stress = read_logfile(joinpath(saveDir,filename_stress))
+numInc = length(DD_disp)
+incRange = 0:1:numInc-1
+
+# Create time varying coordinate vector
+VT = Vector{Vector{Point{3,Float64}}}()
+@inbounds for i in 0:1:numInc-1
+    push!(VT,V .+ [Point{3,Float64}(v) for v in DD_disp[i].data])
+end
 
 #######
 # Visualization
-linewidth = 6
-strokewidth = 2
-markersize = 20
-
 fig = Figure(size=(800,800))
 
-ax1=Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = "bc's")
-hp1=poly!(ax1,GeometryBasics.Mesh(V,Fb), strokewidth=strokewidth,color=:white, strokecolor=:black, shading = FastShading, transparency=true)
-hp2 = scatter!(ax1,V[indNodesBack],color=:black,markersize=markersize)
-hp2 = scatter!(ax1,V[indNodesFront],color=:red,markersize=markersize)
-
-
-stepRange = 0:1:length(DD)-1
-hSlider = Slider(fig[2, 2], range = stepRange, startvalue = length(DD)-1,linewidth=30)
+hSlider = Slider(fig[2, 1], range = incRange, startvalue = numInc-1,linewidth=30)
 
 nodalColor = lift(hSlider.value) do stepIndex
-    norm.(DD[stepIndex].data)
+    norm.(DD_disp[stepIndex].data)
 end
 
 M = lift(hSlider.value) do stepIndex    
-    return GeometryBasics.Mesh(V.+DD[stepIndex].data,Fb)
+    return GeometryBasics.Mesh(V.+DD_disp[stepIndex].data,Fb)
 end
 
 titleString = lift(hSlider.value) do stepIndex
   "Step: "*string(stepIndex)
 end
 
-ax2=Axis3(fig[1, 2], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = titleString)
+ax=Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = titleString)
 
-hp=poly!(ax2,M, strokewidth=2,color=nodalColor, transparency=false, overdraw=false,colormap = Reverse(:Spectral), shading = FastShading)
-Colorbar(fig[1, 3],hp.plots[1],label = "Displacement magnitude [mm]") 
+min_p = minp([minp(V) for V in VT])
+max_p = maxp([maxp(V) for V in VT])
 
-slidercontrol(hSlider,ax2)
+limits!(ax, (min_p[1],max_p[1]), 
+            (min_p[2],max_p[2]), 
+            (min_p[3],max_p[3]))
+
+hp=poly!(M, strokewidth=2,color=nodalColor, transparency=false, overdraw=false,colormap = Reverse(:Spectral))
+Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
+
+slidercontrol(hSlider,ax)
 
 fig
-
