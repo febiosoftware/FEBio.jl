@@ -3,3 +3,6 @@
 
 # Ignore the temporary output folder 
 /.vscode
+
+# Ignore Manifest file
+Manifest.toml
