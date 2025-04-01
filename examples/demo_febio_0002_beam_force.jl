@@ -3,8 +3,8 @@ using Comodo.GeometryBasics
 using Comodo.GLMakie
 using Comodo.LinearAlgebra
 using FEBio
+using FEBio.XML
 using Printf 
-using XML
 
 ######
 # Set FEBio path here for now
