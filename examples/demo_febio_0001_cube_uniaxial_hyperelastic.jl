@@ -7,8 +7,8 @@ using FEBio.XML
 using Printf 
 
 ######
-# Set FEBio path here for now
-const FEBIO_PATH = "/home/kevin/FEBioStudio/bin/febio4" # Path to FEBio executable
+# Set FEBio exec path or name
+const FEBIO_EXEC = "febio4" # FEBio executable
 
 ###### 
 # Control parameters 
@@ -204,7 +204,7 @@ XML.write(filename_FEB, doc)
 
 #######
 # Run FEBio
-run_febio(filename_FEB,FEBIO_PATH)
+run_febio(filename_FEB,FEBIO_EXEC)
 
 #######
 # Import results
