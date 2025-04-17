@@ -125,17 +125,16 @@ material_node = aen(Material_node,"material"; id = 1, name="Material1", type="ne
 
 Mesh_node = aen(febio_spec_node,"Mesh")
 
+# Nodes
 Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
-    for q ∈ eachindex(V)
-        # aen(Nodes_node,"node",@sprintf("%.2f, %.2f, %.2f",V[q][1],V[q][2],V[q][3]); id = q)
-        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ V[q]],','); id = q)     
+    for (i,v) in enumerate(V)        
+        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = i)     
     end
     
 # Elements
 Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
-    for q ∈ eachindex(E)
-        # aen(Elements_node,"elem",@sprintf("%i, %i, %i, %i, %i, %i, %i, %i",E[q][1],E[q][2],E[q][3],E[q][4],E[q][5],E[q][6],E[q][7],E[q][8]); id = q)
-        aen(Elements_node,"elem",join(map(string, E[q]), ','); id = q)
+    for (i,e) in enumerate(E)        
+        aen(Elements_node,"elem",join(map(string, e), ','); id = i)
     end
     
 # Node sets
@@ -213,41 +212,38 @@ DD_stress = read_logfile(joinpath(saveDir,filename_stress))
 numInc = length(DD_disp)
 incRange = 0:1:numInc-1
 
-# Create time varying coordinate vector
-VT = Vector{Vector{Point{3,Float64}}}()
-@inbounds for i in 0:1:numInc-1
-    push!(VT,V .+ [Point{3,Float64}(v) for v in DD_disp[i].data])
+# Create time varying vectors
+UT = fill(V,numInc) 
+VT = fill(V,numInc)
+UT_mag = fill(zeros(length(V)),numInc)
+ut_mag_max = zeros(numInc)
+@inbounds for i in 0:1:numInc-1    
+    UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
+    VT[i+1] += UT[i+1]
+    UT_mag[i+1] = norm.(UT[i+1])
+    ut_mag_max[i+1] = maximum(UT_mag[i+1]) 
 end
+
+min_p = minp([minp(V) for V in VT])
+max_p = maxp([maxp(V) for V in VT])
 
 #######
 # Visualization
 fig = Figure(size=(800,800))
 
-hSlider = Slider(fig[2, 1], range = incRange, startvalue = numInc-1,linewidth=30)
-
-nodalColor = lift(hSlider.value) do stepIndex
-    norm.(DD_disp[stepIndex].data)
-end
-
-M = lift(hSlider.value) do stepIndex    
-    return GeometryBasics.Mesh(V.+DD_disp[stepIndex].data,Fb)
-end
-
-titleString = lift(hSlider.value) do stepIndex
-  "Step: "*string(stepIndex)
-end
-
-ax=Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = titleString)
-
-min_p = minp([minp(V) for V in VT])
-max_p = maxp([maxp(V) for V in VT])
-
-limits!(ax, (min_p[1],max_p[1]), 
-            (min_p[2],max_p[2]), 
-            (min_p[3],max_p[3]))
-
-hp=poly!(M, strokewidth=2,color=nodalColor, transparency=false, overdraw=false,colormap = Reverse(:Spectral),colorrange=(0,sqrt(sum(displacement_prescribed.^2))))
+ax = Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = titleString,
+limits=(min_p[1],max_p[1], min_p[2],max_p[2], min_p[3],max_p[3]))
+hp = poly!(GeometryBasics.Mesh(VT[end],Fb), strokewidth=2,color=UT_mag[end], transparency=false, overdraw=false,
+colormap = Reverse(:Spectral),colorrange=(0,maximum(ut_mag_max)))
 Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
+
+
+hSlider = Slider(fig[2, 1], range = incRange, startvalue = incRange[end],linewidth=30)
+on(hSlider.value) do stepIndex 
+    hp[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
+    hp.color = UT_mag[stepIndex+1]
+    ax.title = "Step: "*string(stepIndex)
+end
 
 slidercontrol(hSlider,ax)
 

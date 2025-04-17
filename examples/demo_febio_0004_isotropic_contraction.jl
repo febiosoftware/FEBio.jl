@@ -12,18 +12,35 @@ const FEBIO_EXEC = "febio4" # FEBio executable
 
 ###### 
 # Control parameters 
-pointSpacing = 3.0
-appliedForce = (0.0, 0.0, -2e-3) 
+sampleSize = 10.0
+pointSpacing = 2.0
 
-# Material parameters
-c1 = 1e-3 #Shear-modulus-like parameter
-m1 = 8  #Material parameter setting degree of non-linearity
-k_factor = 1e2  #Bulk modulus factor 
-k = c1*k_factor #Bulk modulus
+bosm_ini = 10.0
+bosm_diff_amp = 10.0
+cF0 = 10.0
+
+E_youngs = 1.0
+ν = 0.3
+
+function isotropictraction(E,ν,J)
+    # Lamé parameters
+    μ = E./(2*(1+ν))
+    λ = (ν*E)/((1+ν)*(1-2*ν))
+
+    # Hydrostatic stress
+    σₕ = (μ/J) * (J^(2.0/3.0)-1.0) + (λ/J) * log(J)
+
+    # Required contraction given J and material parameters 
+    T = -σₕ*J^(1.0/3.0)
+    return T
+end
+
+J_desired = 1/(2^3)
+T0 = isotropictraction(E_youngs,ν,J_desired)
 
 ###### 
 # Creating a hexahedral mesh for a cube 
-boxDim = [10.0,40.0,10.0] # Dimensionsions for the box in each direction
+boxDim = sampleSize.*[1,1,1] # Dimensionsions for the box in each direction
 boxEl = ceil.(Int64,boxDim./pointSpacing) # Number of elements to use in each direction 
 E,V,F,Fb,CFb_type = hexbox(boxDim,boxEl)
 
@@ -32,9 +49,6 @@ Fb_top = Fb[CFb_type.==1]
 Fb_bottom = Fb[CFb_type.==2]
 Fb_s1 = Fb[CFb_type.==6]
 Fb_s2 = Fb[CFb_type.==3]
-
-indNodesBack = elements2indices(Fb[CFb_type.==4])
-indNodesFront = elements2indices(Fb[CFb_type.==3])
 
 ######
 # Define file names
@@ -48,6 +62,7 @@ filename_xplt = joinpath(saveDir,"febioInputFile_01.xplt") # The XPLT file for v
 filename_log = joinpath(saveDir,"febioInputFile_01_LOG.txt") # The log file featuring the full FEBio terminal output stream
 filename_disp = "febioInputFile_01_DISP.txt" # A log file for results saved in same directory as .feb file  e.g. nodal displacements
 filename_stress = "febioInputFile_01_STRESS.txt"
+filename_J = "febioInputFile_01_J.txt"
 
 ######
 # Define febio input file XML
@@ -56,7 +71,7 @@ doc,febio_spec_node = feb_doc_initialize()
 aen(febio_spec_node,"Module"; type = "solid") # Define Module node: <Module type="solid"/>
 
 control_node = aen(febio_spec_node,"Control") # Define Control node: <Control>
-    aen(control_node,"analysis","STATIC")               
+    aen(control_node,"analysis","STATIC")                
     aen(control_node,"time_steps",10)
     aen(control_node,"step_size",0.1)
     aen(control_node,"plot_zero_state",1)
@@ -117,48 +132,57 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="Ogden")
-    aen(material_node,"c1",c1)
-    aen(material_node,"m1",m1)
-    aen(material_node,"c2",c1)
-    aen(material_node,"m2",-m1)
-    aen(material_node,"k",k)
+material_node = aen(Material_node,"material"; id = 1, name="Material1", type="solid mixture")    
+        solid_node = aen(material_node,"solid"; type="neo-Hookean")                    
+                        aen(solid_node,"E",E_youngs)
+                        aen(solid_node,"v",ν)
 
+        solid_node = aen(material_node,"solid"; type="prescribed isotropic active contraction")
+                        aen(solid_node,"T0",@sprintf("%.16e",T0); lc=1)
+                        
 Mesh_node = aen(febio_spec_node,"Mesh")
 
 # Nodes
 Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
-    for q ∈ eachindex(V)
-        # aen(Nodes_node,"node",@sprintf("%.2f, %.2f, %.2f",V[q][1],V[q][2],V[q][3]); id = q)
-        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ V[q]],','); id = q)     
+    for (i,v) in enumerate(V)        
+        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = i)     
     end
     
 # Elements
 Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
-    for q ∈ eachindex(E)
-        # aen(Elements_node,"elem",@sprintf("%i, %i, %i, %i, %i, %i, %i, %i",E[q][1],E[q][2],E[q][3],E[q][4],E[q][5],E[q][6],E[q][7],E[q][8]); id = q)
-        aen(Elements_node,"elem",join(map(string, E[q]), ','); id = q)
+    for (i,e) in enumerate(E)        
+        aen(Elements_node,"elem",join(map(string, e), ','); id = i)
     end
     
 # Node sets
-bcSupportList = "bcSupportList"
-bcPrescribe = "bcPrescribe"
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodesBack],','); name=bcSupportList)
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodesFront],','); name=bcPrescribe)
+bcPrescribeList_z = "bcPrescribeList_z"
+bcSupportList_x = "bcSupportList_x"
+bcSupportList_y = "bcSupportList_y"
+bcSupportList_z = "bcSupportList_z"
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_bottom)],','); name=bcPrescribeList_z)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s1)],','); name=bcSupportList_x)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s2)],','); name=bcSupportList_y)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_top)],','); name=bcSupportList_z)
 
 MeshDomains_node = aen(febio_spec_node, "MeshDomains")
     aen(MeshDomains_node,"SolidDomain"; mat = "Material1", name="Part1")
 
 Boundary_node = aen(febio_spec_node, "Boundary")
 
-bc_node = aen(Boundary_node,"bc"; name="zero_displacement_xyz", node_set=bcSupportList, type="zero displacement")
+bc_node = aen(Boundary_node,"bc"; name="zero_displacement_x", node_set=bcSupportList_x, type="zero displacement")
     aen(bc_node,"x_dof",1)
-    aen(bc_node,"y_dof",1)
-    aen(bc_node,"z_dof",1)
+    aen(bc_node,"y_dof",0)
+    aen(bc_node,"z_dof",0)
 
-Loads_node = aen(febio_spec_node, "Loads")
-load_node = aen(Loads_node,"nodal_load"; name="PrescribedForce", node_set=bcPrescribe, type="nodal_force")
-    aen(load_node,"value",join([@sprintf("%.16e",x) for x ∈ appliedForce./length(bcPrescribe)],','); lc=@sprintf("%i",1))
+bc_node = aen(Boundary_node,"bc"; name="zero_displacement_y", node_set=bcSupportList_y, type="zero displacement")
+    aen(bc_node,"x_dof",0)
+    aen(bc_node,"y_dof",1)
+    aen(bc_node,"z_dof",0)
+
+bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupportList_z, type="zero displacement")
+    aen(bc_node,"x_dof",0)
+    aen(bc_node,"y_dof",0)
+    aen(bc_node,"z_dof",1)
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
@@ -166,8 +190,9 @@ load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", t
     aen(load_controller_node,"interpolate","LINEAR")
     
 points_node = aen(load_controller_node,"points")
-    aen(points_node,"pt",@sprintf("%.2f, %.2f",0,0))
-    aen(points_node,"pt",@sprintf("%.2f, %.2f",1,1))
+    aen(points_node,"pt",@sprintf("%.2f, %.2f",0.0,0.0))
+    aen(points_node,"pt",@sprintf("%.2f, %.2f",1.0,1.0))
+
 
 Output_node = aen(febio_spec_node,"Output")
 
@@ -176,14 +201,12 @@ plotfile_node = aen(Output_node,"plotfile"; type="febio")
     aen(plotfile_node,"var"; type="stress")
     aen(plotfile_node,"var"; type="relative volume")
     aen(plotfile_node,"var"; type="reaction forces")
-    aen(plotfile_node,"var"; type="contact pressure")
     aen(plotfile_node,"compression",@sprintf("%i",0))
 
 logfile_node = aen(Output_node,"logfile"; file=filename_log)
     aen(logfile_node,"node_data"; data="ux;uy;uz", delim=",", file=filename_disp)
     aen(logfile_node,"element_data"; data="s1;s2;s3", delim=",", file=filename_stress)
-# <logfile file="tempModel.txt">
-#   <node_data data="ux;uy;uz" delim="," file="tempModel_disp_out.txt">1, 2, 3, 4, 5, 6, 7, 8, 
+    aen(logfile_node,"element_data"; data="J", delim=",", file=filename_J)
 
 #######
 # Write FEB file
@@ -197,8 +220,10 @@ run_febio(filename_FEB,FEBIO_EXEC)
 # Import results
 DD_disp = read_logfile(joinpath(saveDir,filename_disp))
 DD_stress = read_logfile(joinpath(saveDir,filename_stress))
+DD_J = read_logfile(joinpath(saveDir,filename_J))
 numInc = length(DD_disp)
 incRange = 0:1:numInc-1
+J_end = DD_J[numInc-1].data
 
 # Create time varying vectors
 UT = fill(V,numInc) 
