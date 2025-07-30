@@ -215,9 +215,7 @@ end
 min_p = minp([minp(V) for V in VT])
 max_p = maxp([maxp(V) for V in VT])
 
-titleString = lift(hSlider.value) do stepIndex
-    "Step: "*string(stepIndex)
-end
+titleString = "Step: "*string(incRange[end]) 
 #######
 # Visualization
 fig = Figure(size=(800,800))
