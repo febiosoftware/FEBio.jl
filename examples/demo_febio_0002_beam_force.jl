@@ -135,9 +135,8 @@ Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
     
 # Elements
 Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
-    for q ∈ eachindex(E)
-        # aen(Elements_node,"elem",@sprintf("%i, %i, %i, %i, %i, %i, %i, %i",E[q][1],E[q][2],E[q][3],E[q][4],E[q][5],E[q][6],E[q][7],E[q][8]); id = q)
-        aen(Elements_node,"elem",join(map(string, E[q]), ','); id = q)
+    for (i,e) in enumerate(E)     
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
     end
     
 # Node sets
@@ -217,22 +216,22 @@ max_p = maxp([maxp(V) for V in VT])
 
 #######
 # Visualization
-fig = Figure(size=(800,800))
+GLMakie.closeall()
 
-ax = Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = titleString,
-limits=(min_p[1],max_p[1], min_p[2],max_p[2], min_p[3],max_p[3]))
-hp = poly!(GeometryBasics.Mesh(VT[end],Fb), strokewidth=2,color=UT_mag[end], transparency=false, overdraw=false,
-colormap = Reverse(:Spectral),colorrange=(0,maximum(ut_mag_max)))
+fig = Figure(size=(800,800))
+stepStart = incRange[end]
+ax = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+hp = meshplot!(ax, Fb, VT[end]; strokewidth=2, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral),colorrange=(0,maximum(ut_mag_max)))
 Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
 
-
-hSlider = Slider(fig[2, 1], range = incRange, startvalue = incRange[end],linewidth=30)
+hSlider = Slider(fig[2, 1], range = incRange, startvalue = stepStart,linewidth=30)
 on(hSlider.value) do stepIndex 
     hp[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
     hp.color = UT_mag[stepIndex+1]
-    ax.title = "Step: "*string(stepIndex)
+    ax.title = "Step: $stepIndex"
 end
 
 slidercontrol(hSlider,ax)
 
-fig
+screen = display(GLMakie.Screen(), fig)
+GLMakie.set_title!(screen, "FEBio example")

@@ -2,6 +2,7 @@ using Comodo
 using Comodo.GeometryBasics
 using Comodo.GLMakie
 using Comodo.LinearAlgebra
+using Comodo.Statistics
 using FEBio
 using FEBio.XML
 using Printf 
@@ -15,12 +16,12 @@ const FEBIO_EXEC = "febio4" # FEBio executable
 sampleSize = 10.0
 pointSpacing = 2.0
 
-bosm_ini = 10.0
-bosm_diff_amp = 10.0
-cF0 = 10.0
-
+# Material parameters
 E_youngs = 1.0
 ν = 0.3
+
+# FEA parameters 
+time_steps = 20
 
 function isotropictraction(E,ν,J)
     # Lamé parameters
@@ -71,24 +72,24 @@ doc,febio_spec_node = feb_doc_initialize()
 aen(febio_spec_node,"Module"; type = "solid") # Define Module node: <Module type="solid"/>
 
 control_node = aen(febio_spec_node,"Control") # Define Control node: <Control>
-    aen(control_node,"analysis","STATIC")                
-    aen(control_node,"time_steps",10)
-    aen(control_node,"step_size",0.1)
-    aen(control_node,"plot_zero_state",1)
-    aen(control_node,"plot_range",@sprintf("%.2f, %.2f",0,-1))
-    aen(control_node,"plot_level","PLOT_MAJOR_ITRS")
-    aen(control_node,"plot_stride",1)
-    aen(control_node,"output_level","OUTPUT_MAJOR_ITRS")
-    aen(control_node,"adaptor_re_solve",1)
+    aen(control_node,"analysis", "STATIC")                
+    aen(control_node,"time_steps", time_steps)
+    aen(control_node,"step_size", 1.0/time_steps)
+    aen(control_node,"plot_zero_state", 1)
+    aen(control_node,"plot_range", @sprintf("%.2f, %.2f",0,-1))
+    aen(control_node,"plot_level", "PLOT_MAJOR_ITRS")
+    aen(control_node,"plot_stride", 1)
+    aen(control_node,"output_level", "OUTPUT_MAJOR_ITRS")
+    aen(control_node,"adaptor_re_solve", 1)
 
 time_stepper_node = aen(control_node,"time_stepper"; type = "default")
-    aen(time_stepper_node,"max_retries",5)
-    aen(time_stepper_node,"opt_iter",10)
-    aen(time_stepper_node,"dtmin",1e-3)
-    aen(time_stepper_node,"dtmax",0.1)
-    aen(time_stepper_node,"aggressiveness",0)
-    aen(time_stepper_node,"cutback",5e-1)
-    aen(time_stepper_node,"dtforce",0)
+    aen(time_stepper_node,"max_retries", 5)
+    aen(time_stepper_node,"opt_iter", 10)
+    aen(time_stepper_node,"dtmin", 1e-3)
+    aen(time_stepper_node,"dtmax", 1.0/time_steps)
+    aen(time_stepper_node,"aggressiveness", 0)
+    aen(time_stepper_node,"cutback", 5e-1)
+    aen(time_stepper_node,"dtforce", 0)
 
 solver_node = aen(control_node,"solver"; type = "solid")
     aen(solver_node,"symmetric_stiffness",1)
@@ -150,8 +151,8 @@ Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
     
 # Elements
 Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
-    for (i,e) in enumerate(E)        
-        aen(Elements_node,"elem",join(map(string, e), ','); id = i)
+    for (i,e) in enumerate(E)     
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
     end
     
 # Node sets
@@ -223,7 +224,6 @@ DD_stress = read_logfile(joinpath(saveDir,filename_stress))
 DD_J = read_logfile(joinpath(saveDir,filename_J))
 numInc = length(DD_disp)
 incRange = 0:1:numInc-1
-J_end = DD_J[numInc-1].data
 
 # Create time varying vectors
 UT = fill(V,numInc) 
@@ -242,22 +242,38 @@ max_p = maxp([maxp(V) for V in VT])
 
 #######
 # Visualization
+GLMakie.closeall()
+
+stepStart = incRange[end]
+
+J_E = [d[1] for d in DD_J[stepStart].data]
+J_F = repeat(J_E,6)
+Fs,Vs = separate_vertices(F,VT[stepStart])
+J_Vs = simplex2vertexdata(Fs,J_F)
+J_mean = mean(J_E)
+
 fig = Figure(size=(800,800))
+ax = AxisGeom(fig[1, 1], title = "Step: $stepStart. J = " * @sprintf("%.3f", J_mean), limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+hp = meshplot!(ax, Fs, Vs; strokewidth=2, color=J_Vs , colormap = :viridis, colorrange=(0.0,1.0))
 
-ax = Axis3(fig[1, 1], aspect = :data, xlabel = "X", ylabel = "Y", zlabel = "Z", title = titleString,
-limits=(min_p[1],max_p[1], min_p[2],max_p[2], min_p[3],max_p[3]))
-hp = poly!(GeometryBasics.Mesh(VT[end],Fb), strokewidth=2,color=UT_mag[end], transparency=false, overdraw=false,
-colormap = Reverse(:Spectral),colorrange=(0,maximum(ut_mag_max)))
-Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
+Colorbar(fig[1, 2], hp.plots[1], label = "Volume ratio []", ticks = 0.0:0.125:1.0) 
 
-
-hSlider = Slider(fig[2, 1], range = incRange, startvalue = incRange[end],linewidth=30)
+hSlider = Slider(fig[2, 1], range = incRange, startvalue = stepStart,linewidth=30)
 on(hSlider.value) do stepIndex 
-    hp[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
-    hp.color = UT_mag[stepIndex+1]
-    ax.title = "Step: "*string(stepIndex)
+    J_E = [d[1] for d in DD_J[stepIndex].data]
+    J_F = repeat(J_E,6)
+    Fs, Vs = separate_vertices(F, VT[stepIndex+1])
+    J_Vs = simplex2vertexdata(Fs,J_F)
+
+    hp[1] = GeometryBasics.Mesh(Vs, Fs)
+    hp.color = J_Vs    
+
+    J_mean = mean(J_E)
+    # hp.color = UT_mag[stepIndex+1]
+    ax.title = "Step: $stepIndex. J = " * @sprintf("%.3f", J_mean)
 end
 
 slidercontrol(hSlider,ax)
 
-fig
+screen = display(GLMakie.Screen(), fig)
+GLMakie.set_title!(screen, "FEBio example")
