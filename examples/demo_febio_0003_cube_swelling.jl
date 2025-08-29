@@ -234,6 +234,7 @@ end
 min_p = minp([minp(V) for V in VT])
 max_p = maxp([maxp(V) for V in VT])
 
+titleString = "Step: "*string(incRange[end]) 
 #######
 # Visualization
 GLMakie.closeall()
