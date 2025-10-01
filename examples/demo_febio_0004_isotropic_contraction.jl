@@ -17,6 +17,14 @@ sampleSize = 10.0
 pointSpacing = 2.0
 
 # Material parameters
+κ = 1.0
+ratio = 100.0 #ratio = κ/μ
+# J_desired = 0.2# 1/(2^2)
+J_desired = 1/(2^3)
+
+μ = κ/ratio 
+E_youngs = 9.0*κ*μ/(3.0*κ + μ)
+ν = (3.0*κ - 2.0 *μ)/(2.0*(3.0*κ + μ))
 E_youngs = 1.0
 ν = 0.3
 
@@ -36,7 +44,7 @@ function isotropictraction(E,ν,J)
     return T
 end
 
-J_desired = 1/(2^3)
+
 T0 = isotropictraction(E_youngs,ν,J_desired)
 
 ###### 
@@ -247,7 +255,7 @@ GLMakie.closeall()
 stepStart = incRange[end]
 
 J_E = [d[1] for d in DD_J[stepStart].data]
-J_F = repeat(J_E,6)
+J_F = repeat(J_E,inner=6)
 Fs,Vs = separate_vertices(F,VT[stepStart])
 J_Vs = simplex2vertexdata(Fs,J_F)
 J_mean = mean(J_E)
@@ -261,7 +269,7 @@ Colorbar(fig[1, 2], hp.plots[1], label = "Volume ratio []", ticks = 0.0:0.125:1.
 hSlider = Slider(fig[2, 1], range = incRange, startvalue = stepStart,linewidth=30)
 on(hSlider.value) do stepIndex 
     J_E = [d[1] for d in DD_J[stepIndex].data]
-    J_F = repeat(J_E,6)
+    J_F = repeat(J_E,inner=6)
     Fs, Vs = separate_vertices(F, VT[stepIndex+1])
     J_Vs = simplex2vertexdata(Fs,J_F)
 

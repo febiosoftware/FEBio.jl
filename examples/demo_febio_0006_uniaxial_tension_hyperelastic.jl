@@ -2,7 +2,6 @@ using Comodo
 using Comodo.GeometryBasics
 using Comodo.GLMakie
 using Comodo.LinearAlgebra
-using Comodo.Statistics
 using FEBio
 using FEBio.XML
 using Printf 
@@ -13,39 +12,31 @@ const FEBIO_EXEC = "febio4" # FEBio executable
 
 ###### 
 # Control parameters 
-pointSpacing = 3.0
-appliedForce = (0.0, 0.0, -2e-3) 
+pointSpacing = 2.0
+strainApplied = 0.5 # Equivalent linear strain
+loadingOption ="tension" # "tension" or "compression"
 
-# Material parameters
-c1 = 1e-3 #Shear-modulus-like parameter
-m1 = 8  #Material parameter setting degree of non-linearity
-k_factor = 1e2  #Bulk modulus factor 
-k = c1*k_factor #Bulk modulus
+E_youngs = 1
+ν =0.4
 
 ###### 
-boxDim = [10.0,40.0,10.0] # Dimensionsions for the box in each direction
+# Creating a hexahedral mesh for a cube 
+boxDim = [5.0, 20.0, 60.0] # Dimensionsions for the box in each direction
+boxEl = ceil.(Int64,boxDim./pointSpacing) # Number of elements to use in each direction 
+E,V,F,Fb,CFb_type = hexbox(boxDim,boxEl)
 
-testCase = 1
-if testCase == 1
-    # Creating a hexahedral mesh for a cube     
-    boxEl = ceil.(Int64,boxDim./pointSpacing) # Number of elements to use in each direction 
-    E,V,F,Fb, Cb = hexbox(boxDim,boxEl)
-    elementType = "hex8"
-    numSides = 6
-elseif testCase == 2
-    E, V, Fb, Cb = tetbox(boxDim, pointSpacing; stringOpt = "paAqYQ",region_vol=nothing)
-    F = element2faces(E)
-    elementType = "tet4"
-    numSides = 4
-end
 # Create face sets to define node sets later 
-Fb_top = Fb[Cb.==1]
-Fb_bottom = Fb[Cb.==2]
-Fb_s1 = Fb[Cb.==6]
-Fb_s2 = Fb[Cb.==3]
+Fb_top = Fb[CFb_type.==1]
+Fb_bottom = Fb[CFb_type.==2]
+Fb_s1 = Fb[CFb_type.==6]
+Fb_s2 = Fb[CFb_type.==3]
 
-indNodesBack = elements2indices(Fb[Cb.==4])
-indNodesFront = elements2indices(Fb[Cb.==3])
+# Defining displacement of the top surface in terms of x, y, and z components
+if loadingOption=="tension"
+    displacement_prescribed = strainApplied*boxDim[3]
+elseif loadingOption=="compression"
+    displacement_prescribed = -strainApplied*boxDim[3]
+end
 
 ######
 # Define file names
@@ -59,7 +50,6 @@ filename_xplt = joinpath(saveDir,"febioInputFile_01.xplt") # The XPLT file for v
 filename_log = joinpath(saveDir,"febioInputFile_01_LOG.txt") # The log file featuring the full FEBio terminal output stream
 filename_disp = "febioInputFile_01_DISP.txt" # A log file for results saved in same directory as .feb file  e.g. nodal displacements
 filename_stress = "febioInputFile_01_STRESS.txt"
-
 ######
 # Define febio input file XML
 doc,febio_spec_node = feb_doc_initialize()
@@ -128,47 +118,58 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="Ogden")
-    aen(material_node,"c1",c1)
-    aen(material_node,"m1",m1)
-    aen(material_node,"c2",c1)
-    aen(material_node,"m2",-m1)
-    aen(material_node,"k",k)
+material_node = aen(Material_node,"material"; id = 1, name="Material1", type="neo-Hookean")
+    aen(material_node,"E",E_youngs)
+    aen(material_node,"v",ν)
 
 Mesh_node = aen(febio_spec_node,"Mesh")
 
 # Nodes
 Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
-    for q ∈ eachindex(V)
-        # aen(Nodes_node,"node",@sprintf("%.2f, %.2f, %.2f",V[q][1],V[q][2],V[q][3]); id = q)
-        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ V[q]],','); id = q)     
+    for (i,v) in enumerate(V)        
+        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = i)     
     end
     
 # Elements
-Elements_node = aen(Mesh_node,"Elements"; name="Part1", type=elementType)
+Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
     for (i,e) in enumerate(E)     
         aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
     end
     
 # Node sets
-bcSupportList = "bcSupportList"
-bcPrescribe = "bcPrescribe"
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodesBack],','); name=bcSupportList)
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodesFront],','); name=bcPrescribe)
+bcPrescribeList_z = "bcPrescribeList_z"
+bcSupportList_x = "bcSupportList_x"
+bcSupportList_y = "bcSupportList_y"
+bcSupportList_z = "bcSupportList_z"
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_bottom)],','); name=bcPrescribeList_z)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s1)],','); name=bcSupportList_x)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s2)],','); name=bcSupportList_y)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_top)],','); name=bcSupportList_z)
 
 MeshDomains_node = aen(febio_spec_node, "MeshDomains")
     aen(MeshDomains_node,"SolidDomain"; mat = "Material1", name="Part1")
 
 Boundary_node = aen(febio_spec_node, "Boundary")
 
-bc_node = aen(Boundary_node,"bc"; name="zero_displacement_xyz", node_set=bcSupportList, type="zero displacement")
+bc_node = aen(Boundary_node,"bc"; name="zero_displacement_x", node_set=bcSupportList_x, type="zero displacement")
     aen(bc_node,"x_dof",1)
+    aen(bc_node,"y_dof",0)
+    aen(bc_node,"z_dof",0)
+
+bc_node = aen(Boundary_node,"bc"; name="zero_displacement_y", node_set=bcSupportList_y, type="zero displacement")
+    aen(bc_node,"x_dof",0)
     aen(bc_node,"y_dof",1)
+    aen(bc_node,"z_dof",0)
+
+bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupportList_z, type="zero displacement")
+    aen(bc_node,"x_dof",0)
+    aen(bc_node,"y_dof",0)
     aen(bc_node,"z_dof",1)
 
-Loads_node = aen(febio_spec_node, "Loads")
-load_node = aen(Loads_node,"nodal_load"; name="PrescribedForce", node_set=bcPrescribe, type="nodal_force")
-    aen(load_node,"value",join([@sprintf("%.16e",x) for x ∈ appliedForce./length(bcPrescribe)],','); lc=@sprintf("%i",1))
+bc_node4 = aen(Boundary_node,"bc"; name="prescribed_disp_z", node_set=bcPrescribeList_z, type="prescribed displacement")
+    aen(bc_node4,"dof","z")
+    aen(bc_node4,"value",displacement_prescribed; lc=@sprintf("%i",1))
+    aen(bc_node4,"relative",@sprintf("%i",0))
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
@@ -191,7 +192,7 @@ plotfile_node = aen(Output_node,"plotfile"; type="febio")
 
 logfile_node = aen(Output_node,"logfile"; file=filename_log)
     aen(logfile_node,"node_data"; data="ux;uy;uz", delim=",", file=filename_disp)
-    aen(logfile_node,"element_data"; data="s1;s2;s3", delim=",", file=filename_stress)    
+    aen(logfile_node,"element_data"; data="s1;s2;s3", delim=",", file=filename_stress)
 # <logfile file="tempModel.txt">
 #   <node_data data="ux;uy;uz" delim="," file="tempModel_disp_out.txt">1, 2, 3, 4, 5, 6, 7, 8, 
 
@@ -246,37 +247,3 @@ slidercontrol(hSlider,ax)
 
 screen = display(GLMakie.Screen(), fig)
 GLMakie.set_title!(screen, "FEBio example")
-
-
-# #######
-
-# S_E = [s[1] for s in DD_stress[stepStart].data]
-# S_F = repeat(S_E,inner=numSides)
-# Fs,Vs = separate_vertices(F,VT[stepStart+1])
-# S_Vs = simplex2vertexdata(Fs,S_F)
-
-# fig = Figure(size=(800,800))
-# ax = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-# hp = meshplot!(ax, Fs, Vs; strokewidth=2, color=S_Vs , colormap = :viridis)
-
-# Colorbar(fig[1, 2], hp.plots[1], label = "S1", ticks = 0.0:0.125:1.0) 
-
-# hSlider = Slider(fig[2, 1], range = incRange, startvalue = stepStart,linewidth=30)
-# on(hSlider.value) do stepIndex 
-#     S_E = [s[1] for s in DD_stress[stepIndex].data]
-#     S_F = repeat(S_E,inner=numSides)
-#     Fs,Vs = separate_vertices(F,VT[stepIndex+1])
-#     S_Vs = simplex2vertexdata(Fs,S_F)
-
-#     hp[1] = GeometryBasics.Mesh(Vs, Fs)
-#     hp.color = S_Vs    
-
-#     J_mean = mean(J_E)
-#     # hp.color = UT_mag[stepIndex+1]
-#     ax.title = "Step: $stepIndex"
-# end
-
-# slidercontrol(hSlider,ax)
-
-# screen = display(GLMakie.Screen(), fig)
-# GLMakie.set_title!(screen, "FEBio example")
