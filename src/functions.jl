@@ -4,7 +4,7 @@ using XML
 # Functions 
 
 function febiojl_dir()
-    joinpath(@__DIR__, "..")
+    pkgdir(@__MODULE__)
 end
 
 function feb_doc_initialize()

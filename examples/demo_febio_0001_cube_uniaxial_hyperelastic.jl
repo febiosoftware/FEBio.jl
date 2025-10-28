@@ -18,7 +18,7 @@ strainApplied = 0.5 # Equivalent linear strain
 loadingOption ="compression" # "tension" or "compression"
 
 E_youngs = 1
-ν =0.4
+ν = 0.4
 
 ###### 
 # Creating a hexahedral mesh for a cube 
@@ -51,6 +51,8 @@ filename_xplt = joinpath(saveDir,"febioInputFile_01.xplt") # The XPLT file for v
 filename_log = joinpath(saveDir,"febioInputFile_01_LOG.txt") # The log file featuring the full FEBio terminal output stream
 filename_disp = "febioInputFile_01_DISP.txt" # A log file for results saved in same directory as .feb file  e.g. nodal displacements
 filename_stress = "febioInputFile_01_STRESS.txt"
+filename_force = "febioInputFile_01_REACTION_FORCE.txt"
+
 ######
 # Define febio input file XML
 doc,febio_spec_node = feb_doc_initialize()
@@ -142,7 +144,8 @@ bcPrescribeList_z = "bcPrescribeList_z"
 bcSupportList_x = "bcSupportList_x"
 bcSupportList_y = "bcSupportList_y"
 bcSupportList_z = "bcSupportList_z"
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_bottom)],','); name=bcPrescribeList_z)
+indNodes_bcPrescribeList_z = elements2indices(Fb_bottom)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodes_bcPrescribeList_z],','); name=bcPrescribeList_z)
 aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s1)],','); name=bcSupportList_x)
 aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s2)],','); name=bcSupportList_y)
 aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_top)],','); name=bcSupportList_z)
@@ -193,9 +196,9 @@ plotfile_node = aen(Output_node,"plotfile"; type="febio")
 
 logfile_node = aen(Output_node,"logfile"; file=filename_log)
     aen(logfile_node,"node_data"; data="ux;uy;uz", delim=",", file=filename_disp)
-    aen(logfile_node,"element_data"; data="s1;s2;s3", delim=",", file=filename_stress)
-# <logfile file="tempModel.txt">
-#   <node_data data="ux;uy;uz" delim="," file="tempModel_disp_out.txt">1, 2, 3, 4, 5, 6, 7, 8, 
+    aen(logfile_node,"element_data"; data="sz", delim=",", file=filename_stress)
+    aen(logfile_node,"node_data"; data="Rx;Ry;Rz", delim=",", file=filename_force)
+
 
 #######
 # Write FEB file
@@ -209,42 +212,88 @@ run_febio(filename_FEB,FEBIO_EXEC)
 # Import results
 DD_disp = read_logfile(joinpath(saveDir,filename_disp))
 DD_stress = read_logfile(joinpath(saveDir,filename_stress))
+DD_force = read_logfile(joinpath(saveDir,filename_force))
 numInc = length(DD_disp)
 incRange = 0:1:numInc-1
+
+F = element2faces(E)
+indBoundaryFaces = boundaryfaceindices(F)
+Fb = F[indBoundaryFaces]
+# Fbs, Vs = separate_vertices(Fb,V)
+Sz = [d[1] for d in DD_stress[numInc-1].data] 
+Sz_F = repeat(Sz,inner=6)
+Sz_Fb = Sz_F[indBoundaryFaces]
+Sz_V = simplex2vertexdata(Fb, Sz_Fb,V)
+
+# Create z-force curve data 
+
+Fz_curve = zeros(numInc)
+time_curve = zeros(numInc)
+for i in 0:1:numInc-1    
+    Fz = [d[3] for d in DD_force[i].data]
+    Fz_curve[i+1] = sum(Fz[indNodes_bcPrescribeList_z])
+    time_curve[i+1] = DD_force[i].time
+end
+
+#######
+# Visualization
 
 # Create time varying vectors
 UT = fill(V,numInc) 
 VT = fill(V,numInc)
+SzT = fill(Sz_V,numInc)
 UT_mag = fill(zeros(length(V)),numInc)
 ut_mag_max = zeros(numInc)
+Sz_max = zeros(numInc)
+Sz_min = zeros(numInc)
 @inbounds for i in 0:1:numInc-1    
     UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
     VT[i+1] += UT[i+1]
     UT_mag[i+1] = norm.(UT[i+1])
     ut_mag_max[i+1] = maximum(UT_mag[i+1]) 
+
+    Sz = [d[1] for d in DD_stress[i].data]
+    Sz_F = repeat(Sz,inner=6)
+    Sz_Fb = Sz_F[indBoundaryFaces]
+    Sz_V = simplex2vertexdata(Fb, Sz_Fb, V)
+    SzT[i+1] = Sz_V
+    Sz_min[i+1] = minimum(Sz)
+    Sz_max[i+1] = maximum(Sz)
 end
 
 min_p = minp([minp(V) for V in VT])
 max_p = maxp([maxp(V) for V in VT])
 
-#######
-# Visualization
 GLMakie.closeall()
 
-fig = Figure(size=(800,800))
+fig = Figure(size=(1200, 800))
 stepStart = incRange[end]
-ax = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-hp = meshplot!(ax, Fb, VT[end]; strokewidth=2, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral),colorrange=(0,maximum(ut_mag_max)))
-Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
+ax1 = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=2, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral),colorrange=(0.0, maximum(ut_mag_max)))
+Colorbar(fig[1, 2], hp1.plots[1], label = "Displacement magnitude [mm]") 
 
-hSlider = Slider(fig[2, 1], range = incRange, startvalue = stepStart,linewidth=30)
+ax2 = AxisGeom(fig[1, 3], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+hp2 = meshplot!(ax2, Fb, VT[end]; strokewidth=2, color=SzT[end], transparency=false, colormap = :viridis,colorrange=(minimum(Sz_min), maximum(Sz_max)))
+Colorbar(fig[1, 4], hp2.plots[1], label = "σ [MPa]") 
+
+ax3 = Axis(fig[1, 5], title = "Step: $stepStart", aspect = AxisAspect(1), xlabel="Time [s]", ylabel="Force [N]")
+lines!(ax3, time_curve, Fz_curve, color=:red, linewidth=3)
+hp3 = scatter!(ax3, Point{2,Float64}(time_curve[stepStart+1], Fz_curve[stepStart+1]), markersize=15, color=:red)
+hSlider = Slider(fig[2, :], range = incRange, startvalue = stepStart,linewidth=30)
 on(hSlider.value) do stepIndex 
-    hp[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
-    hp.color = UT_mag[stepIndex+1]
-    ax.title = "Step: $stepIndex"
+    hp1[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
+    hp1.color = UT_mag[stepIndex+1]
+
+    hp2[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
+    hp2.color = SzT[stepIndex+1]
+        
+    hp3[1] = Point{2,Float64}(time_curve[stepIndex+1], Fz_curve[stepIndex+1])
+    ax1.title = "Step: $stepIndex"
+    ax2.title = "Step: $stepIndex"
+    ax3.title = "Step: $stepIndex"
 end
 
-slidercontrol(hSlider,ax)
+slidercontrol(hSlider,ax1)
 
 screen = display(GLMakie.Screen(), fig)
 GLMakie.set_title!(screen, "FEBio example")
