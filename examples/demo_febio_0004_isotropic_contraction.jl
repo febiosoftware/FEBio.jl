@@ -54,8 +54,8 @@ boxEl = ceil.(Int64,boxDim./pointSpacing) # Number of elements to use in each di
 E,V,F,Fb,CFb_type = hexbox(boxDim,boxEl)
 
 # Create face sets to define node sets later 
-Fb_top = Fb[CFb_type.==1]
-Fb_bottom = Fb[CFb_type.==2]
+Fb_bottom = Fb[CFb_type.==1]
+Fb_top = Fb[CFb_type.==2]
 Fb_s1 = Fb[CFb_type.==6]
 Fb_s2 = Fb[CFb_type.==3]
 
@@ -168,10 +168,10 @@ bcPrescribeList_z = "bcPrescribeList_z"
 bcSupportList_x = "bcSupportList_x"
 bcSupportList_y = "bcSupportList_y"
 bcSupportList_z = "bcSupportList_z"
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_bottom)],','); name=bcPrescribeList_z)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_top)],','); name=bcPrescribeList_z)
 aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s1)],','); name=bcSupportList_x)
 aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s2)],','); name=bcSupportList_y)
-aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_top)],','); name=bcSupportList_z)
+aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_bottom)],','); name=bcSupportList_z)
 
 MeshDomains_node = aen(febio_spec_node, "MeshDomains")
     aen(MeshDomains_node,"SolidDomain"; mat = "Material1", name="Part1")

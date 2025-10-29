@@ -13,12 +13,12 @@ const FEBIO_EXEC = "febio4" # FEBio executable
 ###### 
 # Control parameters 
 sampleSize = 10.0
-pointSpacing = 2.0
-strainApplied = 0.5 # Equivalent linear strain
-loadingOption ="compression" # "tension" or "compression"
+pointSpacing = 3.0
+appliedPressure = 0.2
+loadType = :traction
 
-E_youngs = 1
-ν = 0.4
+E_youngs = 1.0
+ν = 0.3
 
 ###### 
 # Creating a hexahedral mesh for a cube 
@@ -31,13 +31,6 @@ Fb_bottom = Fb[CFb_type.==1]
 Fb_top = Fb[CFb_type.==2]
 Fb_s1 = Fb[CFb_type.==6]
 Fb_s2 = Fb[CFb_type.==3]
-
-# Defining displacement of the top surface in terms of x, y, and z components
-if loadingOption=="tension"
-    displacement_prescribed = strainApplied*sampleSize
-elseif loadingOption=="compression"
-    displacement_prescribed = -strainApplied*sampleSize
-end
 
 ######
 # Define file names
@@ -138,7 +131,14 @@ Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
     for (i,e) in enumerate(E)     
         aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
     end
-    
+
+surfaceName1 = "Surface_Top"
+Surface_node = aen(Mesh_node,"Surface"; name=surfaceName1)
+for (i,e) in enumerate(Fb_top)        
+    aen(Surface_node,"quad4",join([@sprintf("%i",j) for j in e], ','); id = i)
+end
+
+
 # Node sets
 bcPrescribeList_z = "bcPrescribeList_z"
 bcSupportList_x = "bcSupportList_x"
@@ -170,10 +170,18 @@ bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupport
     aen(bc_node,"y_dof",0)
     aen(bc_node,"z_dof",1)
 
-bc_node4 = aen(Boundary_node,"bc"; name="prescribed_disp_z", node_set=bcPrescribeList_z, type="prescribed displacement")
-    aen(bc_node4,"dof","z")
-    aen(bc_node4,"value",displacement_prescribed; lc=@sprintf("%i",1))
-    aen(bc_node4,"relative",@sprintf("%i",0))
+# Loads 
+if loadType == :pressure
+Loads_node = aen(febio_spec_node,"Loads")    
+    surface_load_node = aen(Loads_node, "surface_load"; type="pressure", surface=surfaceName1)    
+        aen(surface_load_node, "pressure", appliedPressure; lc=1)    
+        aen(surface_load_node, "symmetric_stiffness", 1)    
+elseif loadType == :traction
+    Loads_node = aen(febio_spec_node,"Loads")    
+    surface_load_node = aen(Loads_node, "surface_load"; type="traction", surface=surfaceName1)    
+        aen(surface_load_node, "scale", appliedPressure; lc=1)    
+        aen(surface_load_node, "traction", join([@sprintf("%.16e",x) for x ∈ (0.0, 0.0, -1.0)],','); lc=1)            
+end
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
@@ -181,8 +189,8 @@ load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", t
     aen(load_controller_node,"interpolate","LINEAR")
     
 points_node = aen(load_controller_node,"points")
-    aen(points_node,"pt",@sprintf("%.2f, %.2f",0,0))
-    aen(points_node,"pt",@sprintf("%.2f, %.2f",1,1))
+    aen(points_node,"pt",@sprintf("%.2f, %.2f", 0.0, 0.0))
+    aen(points_node,"pt",@sprintf("%.2f, %.2f", 1.0, 1.0))
 
 Output_node = aen(febio_spec_node,"Output")
 

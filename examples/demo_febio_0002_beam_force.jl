@@ -38,12 +38,8 @@ elseif testCase == 2
     elementType = "tet4"
     numSides = 4
 end
-# Create face sets to define node sets later 
-Fb_top = Fb[Cb.==1]
-Fb_bottom = Fb[Cb.==2]
-Fb_s1 = Fb[Cb.==6]
-Fb_s2 = Fb[Cb.==3]
 
+# Create node sets to define boundary conditions later 
 indNodesBack = elements2indices(Fb[Cb.==4])
 indNodesFront = elements2indices(Fb[Cb.==3])
 
