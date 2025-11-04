@@ -310,9 +310,12 @@ function objective_FEA(x)
     max_p = maxp([maxp(V) for V in VT])
 
     # Evaluate objective 
-    Fz_exp = lerp(U_exp, F_exp, Uz_curve) 
-    diff_exp = Fz_curve .- Fz_exp # Linearly interpolate data 
+    # Fz_exp = lerp(U_exp, F_exp, Uz_curve) 
+    # diff_exp = Fz_curve .- Fz_exp # Linearly interpolate data 
 
+    F_exp_fea = lerp(Uz_curve, Fz_curve, U_exp) 
+    diff_exp = F_exp_fea .- F_exp # Linearly interpolate data 
+    
     V_plot_UF = Vector{Point{2,Float64}}(undef,length(Uz_curve))
     for i in eachindex(Uz_curve)
         V_plot_UF[i] = Point{2,Float64}(Uz_curve[i], Fz_curve[i])        
