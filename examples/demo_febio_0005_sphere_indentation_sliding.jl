@@ -203,7 +203,7 @@ Mesh_node = aen(febio_spec_node,"Mesh")
         
     Elements_node = aen(Mesh_node,"Elements"; name="Part2", type="quad4")
         for (i,e) in enumerate(F2)     
-            aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
+            aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i+length(E))
         end    
 
     # Node sets
@@ -384,7 +384,7 @@ on(hSlider.value) do stepIndex
     ax2.title = "Step: $stepIndex"
 end
 
-slidercontrol(hSlider,ax)
+slidercontrol(hSlider,ax1)
 
 screen = display(GLMakie.Screen(), fig)
 GLMakie.set_title!(screen, "FEBio example")

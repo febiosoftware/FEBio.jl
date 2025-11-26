@@ -97,7 +97,5 @@ function run_febio(filename_FEB,FEBIO_PATH="febio")
     else
         runCommand = `"$FEBIO_PATH" "$run_filename"` # runCommand = `start /min "$FEBIO_PATH" "$run_filename"`
     end
-
-    
     run(runCommand)
 end
