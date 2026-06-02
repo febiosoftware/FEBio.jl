@@ -41,32 +41,33 @@ struct stepData
     dataFlag::String
     indices::Vector{Int64}
     time::Float64
+    step::Int64
 end
 
-function read_logfile(filename)
-    
+function read_logfile(filename)    
     f = open(filename,"r")  # Open file in read mode
-    nParse = 1    
-
+    
     dataFlagNow = ""
     stepIndexNow = -1
     timeNow = -1.0
+    stepNow = 0
     D = Vector{Vector{Float64}}()
     I = Vector{Int64}()
     DD = Dict{Int64,stepData}() 
-       
+    
     # *Step  = 0
     # *Time  = 0
     # *Data  = ux;uy;uz
-    # 1,0,0,0
+    # 1,0,0,0    
     for l ∈ eachline(f) # Loop over each line in the file
-        if contains(l,"*") # This means 
+        if contains(l,"*") # Header line
             sv = strip(split(l,'=')[2]) # Split the string using = and get string after             
             if contains(l,"*Step")
-                if stepIndexNow>=0
-                    DD[stepIndexNow] = stepData(D,dataFlagNow,I,timeNow)
+                if stepIndexNow>=0                    
+                    DD[stepNow] = stepData(D, dataFlagNow, I, timeNow, stepIndexNow)
                     D = Vector{Vector{Float64}}()
                     I = Vector{Int64}()
+                    stepNow += 1
                 end
                 stepIndexNow=parse(Int64,sv)                            
             elseif contains(l,"*Time")
@@ -74,13 +75,13 @@ function read_logfile(filename)
             elseif contains(l,"*Data")
                 dataFlagNow=sv  
             end
-        else
+        else # Data line
             ss = strip.(split(l,',')) # Split based on , as delimiter
             push!(I,parse(Int64,ss[1])) # Add index
             push!(D,parse.(Float64,ss[2:end])) # Add data
         end
     end
-    DD[stepIndexNow]=stepData(D,dataFlagNow,I,timeNow) # Add last data
+    DD[stepNow]=stepData(D, dataFlagNow, I, timeNow, stepIndexNow) # Add last data
 
     close(f)
 
