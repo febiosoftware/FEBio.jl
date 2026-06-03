@@ -293,7 +293,7 @@ ax1 = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1]
 hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=2, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral),colorrange=(0,maximum(ut_mag_max)))
 Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
 
-ax2 = Axis(fig[1, 3], title = "Step: $stepStart", xlabel="Time [s]", ylabel="Reaction torque [Nm]")
+ax2 = Axis(fig[1, 3], title = "Step: $stepStart", xlabel="Time [s]", ylabel="Reaction torque [Nmm]")
 lines!(ax2, time_curve, My, color=:red, linewidth=3)
 hp2 = scatter!(ax2, Point{2,Float64}(time_curve[stepStart+1], My[stepStart+1]), markersize=15, color=:red)
 
