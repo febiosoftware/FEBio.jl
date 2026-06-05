@@ -311,4 +311,4 @@ end
 slidercontrol(hSlider,ax1)
 
 screen = display(GLMakie.Screen(), fig)
-GLMakie.set_title!(screen, "FEBio example")COUNTIF(D191:N191, "Present")
+GLMakie.set_title!(screen, "FEBio example")
