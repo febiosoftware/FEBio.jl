@@ -121,28 +121,28 @@ ax1 = AxisGeom(fig[1, 1], title="Material regions")
 hp1 = meshplot!(ax1, Fp, Vp; color=:white, strokewidth=1.0)
 hp2 = meshplot!(ax1, F_shell, V; color=:lightgreen, strokewidth=1.0)
 
-Legend(fig[1, 2],
+Legend(fig[2, 1],
     [hp1, hp2],
     ["Silicone hexahedral elements", "Fabric shell quadrilateral elements"])
 
 
-ax2 = AxisGeom(fig[1, 3], title="Boundary conditions step 1")
+ax2 = AxisGeom(fig[1, 2], title="Boundary conditions step 1")
 meshplot!(ax2, Fp, Vp; color=(:white, 0.5), strokewidth=0.0, transparency=true)
 
 hp3 = scatter!(ax2, V[indicesNodes_Ux_pre_pos], color=:red, markersize=10, depth_shift=-0.01f0)
 hp4 = scatter!(ax2, V[indicesNodes_Ux_pre_neg], color=:black, markersize=10, depth_shift=-0.01f0)
 
-Legend(fig[1, 4],
+Legend(fig[2, 2],
     [hp3, hp4],
     ["Front clamp nodes", "Back clamp nodes"])
 
-ax3 = AxisGeom(fig[1, 5], title="Boundary conditions step 2")
+ax3 = AxisGeom(fig[1, 3], title="Boundary conditions step 2")
 meshplot!(ax3, Fp, Vp; color=(:white, 0.5), strokewidth=0.0, transparency=true)
 
 hp5 = scatter!(ax3, V[indicesNodes_Uz_pre], color=:red, markersize=10, depth_shift=-0.01f0)
 hp6 = scatter!(ax3, V[indicesNodes_Uz_fix], color=:black, markersize=10, depth_shift=-0.01f0)
 
-Legend(fig[1, 6],
+Legend(fig[2, 3],
     [hp5, hp6],
     ["Top clamp nodes", "Bottom clamp nodes"])
 
