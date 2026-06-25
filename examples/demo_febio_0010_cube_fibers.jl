@@ -15,7 +15,7 @@ const FEBIO_EXEC = "febio4" # FEBio executable
 sampleSize = 10.0
 pointSpacing = 2.0
 strainApplied = 0.5 # Equivalent linear strain
-loadingOption ="tension" # "tension" or "compression"
+loadingOption ="compression" # "tension" or "compression"
 
 # parameters for solid
 E_youngs = 1.0
@@ -27,8 +27,7 @@ alpha = 0.0
 beta = 2.0
 lam0 = 1.0
 theta = 90.0
-
-phi = 0
+phi = 90.0
 
 ###### 
 # Creating a hexahedral mesh for a cube 
@@ -133,8 +132,7 @@ Material_node = aen(febio_spec_node,"Material")
 
 material_node = aen(Material_node,"material"; id = 1, name="Material1", type="solid mixture")
 
-    solid_node_01 = aen(material_node,"solid"; type="neo-Hookean")
-        aen(solid_node_01,"density", d)
+    solid_node_01 = aen(material_node,"solid"; type="neo-Hookean")        
         aen(solid_node_01,"E", E_youngs)
         aen(solid_node_01,"v", ν)
 
