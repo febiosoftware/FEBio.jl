@@ -285,17 +285,15 @@ Mz = [m[3] for m in M]
 
 #######
 # Visualization
-GLMakie.closeall()
-
-fig = Figure(size=(1200,1000))
+fig = Figure(size=(1200,1000), fontsize=25)
 stepStart = incRange[end]
 ax1 = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
 hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=2, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral),colorrange=(0,maximum(ut_mag_max)))
-Colorbar(fig[1, 2],hp1.plots[1],label = "Displacement magnitude [mm]") 
+Colorbar(fig[1, 2],hp1.plots[1], label = "Displacement magnitude [mm]") 
 
 ax2 = Axis(fig[1, 3], title = "Step: $stepStart", xlabel="Time [s]", ylabel="Reaction torque [Nmm]")
-lines!(ax2, time_curve, My, color=:red, linewidth=3)
-hp2 = scatter!(ax2, Point{2,Float64}(time_curve[stepStart+1], My[stepStart+1]), markersize=15, color=:red)
+lines!(ax2, time_curve, My, color=:red, linewidth=4)
+hp2 = scatter!(ax2, Point{2,Float64}(time_curve[stepStart+1], My[stepStart+1]), markersize=25, color=:red)
 
 hSlider = Slider(fig[2, :], range = incRange, startvalue = stepStart,linewidth=30)
 on(hSlider.value) do stepIndex 
