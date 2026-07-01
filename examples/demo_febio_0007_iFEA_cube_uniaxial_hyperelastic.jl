@@ -43,9 +43,15 @@ F_exp = fit_data["Force"]
 ###### 
 # Control parameters 
 sampleSize = 10.0
-pointSpacing = 10.0
 strainApplied = 0.5 # Equivalent linear strain
-loadingOption ="compression" # "tension" or "compression"
+loadingOption = :compression # :tension or :compression
+bcOption = :uniaxial # :uniaxial or :constrained
+if bcOption == :uniaxial
+    pointSpacing = sampleSize # Can be 1 element since it is uniaxial
+elseif bcOption == :constrained
+    pointSpacing = sampleSize/10.0 # More elements so barreling is captured
+end
+
 
 global iterationCount = 1
 
@@ -80,9 +86,9 @@ function objective_FEA(x)
     Fb_s2 = Fb[CFb_type.==3]
 
     # Defining displacement of the top surface in terms of x, y, and z components
-    if loadingOption=="tension"
+    if loadingOption == :tension
         displacement_prescribed = strainApplied*sampleSize
-    elseif loadingOption=="compression"
+    elseif loadingOption == :compression
         displacement_prescribed = -strainApplied*sampleSize
     end
 
@@ -188,40 +194,71 @@ function objective_FEA(x)
         end
         
     # Node sets
-    bcPrescribeList_z = "bcPrescribeList_z"
-    bcSupportList_x = "bcSupportList_x"
-    bcSupportList_y = "bcSupportList_y"
-    bcSupportList_z = "bcSupportList_z"
-    indNodes_bcPrescribeList_z = elements2indices(Fb_top)
-    aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodes_bcPrescribeList_z],','); name=bcPrescribeList_z)
-    aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s1)],','); name=bcSupportList_x)
-    aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s2)],','); name=bcSupportList_y)
-    aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_bottom)],','); name=bcSupportList_z)
-
+    if bcOption == :uniaxial
+        bcPrescribeList_z = "bcPrescribeList_z"
+        bcSupportList_x = "bcSupportList_x"
+        bcSupportList_y = "bcSupportList_y"
+        bcSupportList_z = "bcSupportList_z"
+        indNodes_bcPrescribeList_z = elements2indices(Fb_top)
+        aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodes_bcPrescribeList_z],','); name=bcPrescribeList_z)
+        aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s1)],','); name=bcSupportList_x)
+        aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_s2)],','); name=bcSupportList_y)
+        aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ elements2indices(Fb_bottom)],','); name=bcSupportList_z)
+    elseif bcOption == :constrained
+        bcPrescribeList_z = "bcPrescribeList_z"
+        bcSupportList_z = "bcSupportList_z"
+        indNodes_bcPrescribeList_z = elements2indices(Fb_top)
+        indNodes_bcSupportList_z = elements2indices(Fb_bottom)
+        aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodes_bcPrescribeList_z],','); name=bcPrescribeList_z)        
+        aen(Mesh_node,"NodeSet",join([@sprintf("%i",x) for x ∈ indNodes_bcSupportList_z],','); name=bcSupportList_z)
+    end
+    
     MeshDomains_node = aen(febio_spec_node, "MeshDomains")
         aen(MeshDomains_node,"SolidDomain"; mat = "Material1", name="Part1")
 
     Boundary_node = aen(febio_spec_node, "Boundary")
 
-    bc_node = aen(Boundary_node,"bc"; name="zero_displacement_x", node_set=bcSupportList_x, type="zero displacement")
-        aen(bc_node,"x_dof",1)
-        aen(bc_node,"y_dof",0)
-        aen(bc_node,"z_dof",0)
+    if bcOption == :uniaxial
+        bc_node = aen(Boundary_node,"bc"; name="zero_displacement_x", node_set=bcSupportList_x, type="zero displacement")
+            aen(bc_node,"x_dof",1)
+            aen(bc_node,"y_dof",0)
+            aen(bc_node,"z_dof",0)
 
-    bc_node = aen(Boundary_node,"bc"; name="zero_displacement_y", node_set=bcSupportList_y, type="zero displacement")
-        aen(bc_node,"x_dof",0)
-        aen(bc_node,"y_dof",1)
-        aen(bc_node,"z_dof",0)
+        bc_node = aen(Boundary_node,"bc"; name="zero_displacement_y", node_set=bcSupportList_y, type="zero displacement")
+            aen(bc_node,"x_dof",0)
+            aen(bc_node,"y_dof",1)
+            aen(bc_node,"z_dof",0)
 
-    bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupportList_z, type="zero displacement")
-        aen(bc_node,"x_dof",0)
-        aen(bc_node,"y_dof",0)
-        aen(bc_node,"z_dof",1)
+        bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupportList_z, type="zero displacement")
+            aen(bc_node,"x_dof",0)
+            aen(bc_node,"y_dof",0)
+            aen(bc_node,"z_dof",1)
 
-    bc_node4 = aen(Boundary_node,"bc"; name="prescribed_disp_z", node_set=bcPrescribeList_z, type="prescribed displacement")
-        aen(bc_node4,"dof","z")
-        aen(bc_node4,"value",displacement_prescribed; lc=@sprintf("%i",1))
-        aen(bc_node4,"relative",@sprintf("%i",0))
+        bc_node = aen(Boundary_node,"bc"; name="prescribed_disp_z", node_set=bcPrescribeList_z, type="prescribed displacement")
+            aen(bc_node,"dof","z")
+            aen(bc_node,"value",displacement_prescribed; lc=@sprintf("%i",1))
+            aen(bc_node,"relative",@sprintf("%i",0))
+    elseif bcOption == :constrained
+        bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupportList_z, type="zero displacement")
+            aen(bc_node,"x_dof",1)
+            aen(bc_node,"y_dof",1)
+            aen(bc_node,"z_dof",1)
+
+        bc_node = aen(Boundary_node,"bc"; name="zero_displacement_x", node_set=bcPrescribeList_z, type="zero displacement")
+            aen(bc_node,"x_dof",1)
+            aen(bc_node,"y_dof",0)
+            aen(bc_node,"z_dof",0)
+
+        bc_node = aen(Boundary_node,"bc"; name="zero_displacement_y", node_set=bcPrescribeList_z, type="zero displacement")
+            aen(bc_node,"x_dof",0)
+            aen(bc_node,"y_dof",1)
+            aen(bc_node,"z_dof",0)
+
+        bc_node = aen(Boundary_node,"bc"; name="prescribed_disp_z", node_set=bcPrescribeList_z, type="prescribed displacement")
+            aen(bc_node,"dof","z")
+            aen(bc_node,"value",displacement_prescribed; lc=@sprintf("%i",1))
+            aen(bc_node,"relative",@sprintf("%i",0))
+    end
 
     LoadData_node = aen(febio_spec_node,"LoadData")
 
