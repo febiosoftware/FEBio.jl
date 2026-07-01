@@ -45,7 +45,7 @@ F_exp = fit_data["Force"]
 sampleSize = 10.0
 strainApplied = 0.5 # Equivalent linear strain
 loadingOption = :compression # :tension or :compression
-bcOption = :constrained # :uniaxial or :constrained
+bcOption = :uniaxial # :uniaxial or :constrained
 if bcOption == :uniaxial
     pointSpacing = sampleSize # Can be 1 element since it is uniaxial
 elseif bcOption == :constrained
