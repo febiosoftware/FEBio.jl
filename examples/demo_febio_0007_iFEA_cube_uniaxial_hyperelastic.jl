@@ -45,7 +45,7 @@ F_exp = fit_data["Force"]
 sampleSize = 10.0
 strainApplied = 0.5 # Equivalent linear strain
 loadingOption = :compression # :tension or :compression
-bcOption = :uniaxial # :uniaxial or :constrained
+bcOption = :constrained # :uniaxial or :constrained
 if bcOption == :uniaxial
     pointSpacing = sampleSize # Can be 1 element since it is uniaxial
 elseif bcOption == :constrained
@@ -372,10 +372,11 @@ function objective_FEA(x)
         Colorbar(fig[1, 4], hp2.plots[1], label = "σ [MPa]") 
 
         ax3 = Axis(fig[1, 5], title = "Step: $stepStart", aspect = AxisAspect(1), xlabel="Displacement [mm]", ylabel="Force [N]")
-        lines!(ax3, U_exp, F_exp, color=:black, linewidth=3)
+        hlp1 = lines!(ax3, U_exp, F_exp, color=:black, linewidth=5)
+        hlp2 = lines!(ax3, V_plot_UF, color=:red, linewidth=2)
+        Legend(fig[1, 6], [hlp1,hlp2],["Exp.", "FEA"])
 
-        hlp = lines!(ax3, V_plot_UF, color=:red, linewidth=3)
-        global hl = hlp
+        global hl = hlp2
 
         hsp = scatter!(ax3, V_plot_UF[stepStart+1], markersize=15, color=:red)
         global hs = hsp
