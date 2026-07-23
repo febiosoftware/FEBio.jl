@@ -1,7 +1,10 @@
 name = "FEBio"
 uuid = "c57eab10-e7d7-41f3-9039-a27761009b26"
-authors = ["Kevin-Mattheus-Moerman <kevin.moerman@gmail.com>"]
 version = "0.1.0"
+authors = ["Kevin-Mattheus-Moerman <kevin.moerman@gmail.com>"]
 
 [deps]
 XML = "72c71f33-b9b6-44de-8c94-c961784809e2"
+
+[compat]
+XML = "0.3.6"

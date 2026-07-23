@@ -1,8 +1,4 @@
-# Call required packages
-using XML
-
 # Functions 
-
 function febiojl_dir()
     pkgdir(@__MODULE__)
 end

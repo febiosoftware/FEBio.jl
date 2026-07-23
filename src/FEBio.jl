@@ -1,6 +1,6 @@
 module FEBio
 
-import XML
+using XML
 
 export febiojl_dir, feb_doc_initialize, aen, read_logfile, run_febio
 

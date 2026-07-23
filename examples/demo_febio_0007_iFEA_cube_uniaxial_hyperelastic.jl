@@ -46,6 +46,7 @@ sampleSize = 10.0
 strainApplied = 0.5 # Equivalent linear strain
 loadingOption = :compression # :tension or :compression
 bcOption = :uniaxial # :uniaxial or :constrained
+
 if bcOption == :uniaxial
     pointSpacing = sampleSize # Can be 1 element since it is uniaxial
 elseif bcOption == :constrained
@@ -431,9 +432,9 @@ function objective_FEA(x)
 end
 
 # True parameters 
-# c1 = 0.5
-# m1 = 6.3
-# cp = 100 * c1
+c1_true = 0.5
+m1_true = 6.3
+cp_true = 100 * c1_true
 
 # Initial Ogden parameters 
 c1 = 0.4
@@ -445,3 +446,4 @@ x0 = [c1, m1] # Initial guess
 W = optimize(objective_FEA, x0, LevenbergMarquardt())
 
 println("And the winner is....: ", W.minimizer)
+println("True parameters: ", [c1_true, m1_true])
