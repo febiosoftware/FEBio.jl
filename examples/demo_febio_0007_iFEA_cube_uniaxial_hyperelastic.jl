@@ -189,7 +189,7 @@ function objective_FEA(x)
         end
         
     # Elements
-    Elements_node = aen(Mesh_node,"Elements"; name="Part1", type=elementType)
+    Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
         for (i,e) in enumerate(E)     
             aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i))
         end
@@ -441,8 +441,8 @@ c1 = 0.4
 m1 = 2.0
 x0 = [c1, m1] # Initial guess
 
-x_tol = 1e-6 # Parameter tolerance 
-f_tol = 1e-6 # Function tolerance
+x_tol = 1e-3 # Parameter tolerance 
+f_tol = 1e-3 # Function tolerance
 max_number_iterations = 100
 W = optimize(objective_FEA, x0, LevenbergMarquardt(); x_tol=x_tol, f_tol=f_tol, iterations=max_number_iterations)
 
