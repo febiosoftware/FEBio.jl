@@ -130,7 +130,7 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="solid mixture")
+material_node = aen(Material_node,"material"; id = "1", name="Material1", type="solid mixture")
 
     solid_node_01 = aen(material_node,"solid"; type="neo-Hookean")        
         aen(solid_node_01,"E", E_youngs)
@@ -159,13 +159,13 @@ Mesh_node = aen(febio_spec_node,"Mesh")
 # Nodes
 Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
     for (i,v) in enumerate(V)        
-        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = i)     
+        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = @sprintf("%i", i))     
     end
     
 # Elements
-Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
+Elements_node = aen(Mesh_node,"Elements"; name="Part1", type=elementType)
     for (i,e) in enumerate(E)     
-        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i))
     end
     
 # Node sets
@@ -201,12 +201,12 @@ bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupport
 
 bc_node4 = aen(Boundary_node,"bc"; name="prescribed_disp_z", node_set=bcPrescribeList_z, type="prescribed displacement")
     aen(bc_node4,"dof","z")
-    aen(bc_node4,"value",displacement_prescribed; lc=@sprintf("%i",1))
+    aen(bc_node4,"value",displacement_prescribed; lc="1")
     aen(bc_node4,"relative",@sprintf("%i",0))
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
-load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", type="loadcurve")
+load_controller_node = aen(LoadData_node,"load_controller"; id="1", name="LC_1", type="loadcurve")
     aen(load_controller_node,"interpolate","LINEAR")
     
 points_node = aen(load_controller_node,"points")

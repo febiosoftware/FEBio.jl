@@ -175,14 +175,14 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="Ogden")
+material_node = aen(Material_node,"material"; id = "1", name="Material1", type="Ogden")
     aen(material_node,"c1",c1)
     aen(material_node,"m1",m1)
     aen(material_node,"c2",c1)
     aen(material_node,"m2",-m1)
     aen(material_node,"k",k)
 
-material_node = aen(Material_node,"material"; id = 2, name="Material2", type="rigid body")
+material_node = aen(Material_node,"material"; id = "2", name="Material2", type="rigid body")
     aen(material_node,"density",1.0)
     aen(material_node,"center_of_mass",join([@sprintf("%.16e",x) for x ∈ V2_centre],','))
 
@@ -191,19 +191,19 @@ Mesh_node = aen(febio_spec_node,"Mesh")
 
     # Nodes
     Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
-        for q ∈ eachindex(V)            
-            aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ V[q]],','); id = q)     
+        for (i,v) in enumerate(V)        
+            aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = @sprintf("%i", i))     
         end
         
     # Elements
     Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
         for (i,e) in enumerate(E)     
-            aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
+            aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i))
         end
         
     Elements_node = aen(Mesh_node,"Elements"; name="Part2", type="quad4")
         for (i,e) in enumerate(F2)     
-            aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i+length(E))
+            aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i+length(E)))
         end    
 
     # Node sets
@@ -213,13 +213,13 @@ Mesh_node = aen(febio_spec_node,"Mesh")
     surfaceName1 = "Surface_Top"
     Surface_node = aen(Mesh_node,"Surface"; name=surfaceName1)
     for (i,e) in enumerate(Fb_top)        
-        aen(Surface_node,"quad4",join([@sprintf("%i",j) for j in e], ','); id = i)
+        aen(Surface_node,"quad4",join([@sprintf("%i",j) for j in e], ','); id = @sprintf("%i", i))
     end
 
     surfaceName2 = "Surface_Sphere"
     Surface_node = aen(Mesh_node,"Surface"; name=surfaceName2)
     for (i,e) in enumerate(F2)        
-        aen(Surface_node,"quad4",join([@sprintf("%i",j) for j in e], ','); id = i)
+        aen(Surface_node,"quad4",join([@sprintf("%i",j) for j in e], ','); id = @sprintf("%i", i))
     end
 
     surfacePairName1 = "SurfacePair_Top_Sphere"
@@ -250,19 +250,19 @@ Rigid_node = aen(febio_spec_node, "Rigid")
     rigid_bc = aen(Rigid_node,"rigid_bc"; name="RigidPrescribe_sphere1_X", type="rigid_displacement")
         aen(rigid_bc, "rb", 2)
         aen(rigid_bc, "dof", "x")
-        aen(rigid_bc, "value", sphereDisplacement_XYZ[1]; lc=1)
+        aen(rigid_bc, "value", sphereDisplacement_XYZ[1]; lc="1")
         aen(rigid_bc, "relative", 0)
     
     rigid_bc = aen(Rigid_node,"rigid_bc"; name="RigidPrescribe_sphere1_Y", type="rigid_displacement")
         aen(rigid_bc, "rb", 2)
         aen(rigid_bc, "dof", "y")
-        aen(rigid_bc, "value", sphereDisplacement_XYZ[2]; lc=1)
+        aen(rigid_bc, "value", sphereDisplacement_XYZ[2]; lc="1")
         aen(rigid_bc, "relative", 0)
 
     rigid_bc = aen(Rigid_node,"rigid_bc"; name="RigidPrescribe_sphere1_Z", type="rigid_displacement")
         aen(rigid_bc,"rb",2)
         aen(rigid_bc,"dof","z")
-        aen(rigid_bc,"value", sphereDisplacement_XYZ[3]; lc=1)
+        aen(rigid_bc,"value", sphereDisplacement_XYZ[3]; lc="1")
         aen(rigid_bc,"relative",0)
 
 Contact_node = aen(febio_spec_node,"Contact")
@@ -281,7 +281,7 @@ Contact_node = aen(febio_spec_node,"Contact")
         aen(contact_node,"fric_coeff",fric_coeff)
             
 LoadData_node = aen(febio_spec_node,"LoadData")
-    load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", type="loadcurve")
+    load_controller_node = aen(LoadData_node,"load_controller"; id="1", name="LC_1", type="loadcurve")
         aen(load_controller_node,"interpolate","LINEAR")
         points_node = aen(load_controller_node,"points")
             aen(points_node,"pt",@sprintf("%.2f, %.2f", 0.0, 0.0))

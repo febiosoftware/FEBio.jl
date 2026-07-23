@@ -176,7 +176,7 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="Ogden unconstrained")
+material_node = aen(Material_node,"material"; id = "1", name="Material1", type="Ogden unconstrained")
     aen(material_node,"c1",  c)
     aen(material_node,"m1",  m)
     aen(material_node,"c2",  c)
@@ -184,7 +184,7 @@ material_node = aen(Material_node,"material"; id = 1, name="Material1", type="Og
     aen(material_node,"cp", κp)
     aen(material_node,"density", d)
 
-    material_node = aen(Material_node,"material"; id = 2, name="Material2", type="solid mixture")
+    material_node = aen(Material_node,"material"; id = "2", name="Material2", type="solid mixture")
 
     solid_node_01 = aen(material_node,"solid"; type="Ogden unconstrained")
         aen(solid_node_01,"c1",  c)
@@ -238,19 +238,19 @@ Mesh_node = aen(febio_spec_node,"Mesh")
 # Nodes
 Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
     for (i,v) in enumerate(V)        
-        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = i)     
+        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = @sprintf("%i", i))     
     end
     
 # Elements
 Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
     for (iElem,e) in enumerate(E)     
-        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = iElem)
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", iElem))
     end
 
 Elements_node = aen(Mesh_node,"Elements"; name="Part2", type="quad4")
     for (i,e) in enumerate(F_shell)
         iElem = i + length(E)     
-        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = iElem)
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", iElem))
     end
 
 # Node sets
@@ -285,7 +285,7 @@ MeshDomains_node = aen(febio_spec_node, "MeshDomains")
 Step_node = aen(febio_spec_node,"Step") # Define Step node: <Step>
 
 # STEP 1
-step_node_1 = aen(Step_node,"step"; id=1) # Define step node: <step>
+step_node_1 = aen(Step_node,"step"; id="1") # Define step node: <step>
 control_node = aen(step_node_1,"Control") # Define Control node: <Control>
     aen(control_node,"analysis","STATIC")               
     aen(control_node,"time_steps",10)
@@ -340,7 +340,7 @@ qn_method_node = aen(solver_node,"qn_method"; type = "BFGS")
     aen(qn_method_node,"cmax",0)
 
 # STEP 2    
-step_node_2 = aen(Step_node,"step"; id=2) # Define step node: <step>
+step_node_2 = aen(Step_node,"step"; id="2") # Define step node: <step>
 control_node = aen(step_node_2,"Control") # Define Control node: <Control>
     aen(control_node,"analysis","STATIC")               
     aen(control_node,"time_steps",10)
@@ -451,7 +451,7 @@ bc_node = aen(Boundary_node,"bc"; name="prescribed_displacement_z", node_set=bcP
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
-load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", type="loadcurve")
+load_controller_node = aen(LoadData_node,"load_controller"; id="1", name="LC_1", type="loadcurve")
     aen(load_controller_node,"interpolate","LINEAR")
     
 points_node = aen(load_controller_node,"points")
@@ -459,7 +459,7 @@ points_node = aen(load_controller_node,"points")
     aen(points_node,"pt",@sprintf("%.2f, %.2f",1.0, 1.0))
     aen(points_node,"pt",@sprintf("%.2f, %.2f",2.0, 1.0))
 
-load_controller_node = aen(LoadData_node,"load_controller"; id=2, name="LC_2", type="loadcurve")
+load_controller_node = aen(LoadData_node,"load_controller"; id="2", name="LC_2", type="loadcurve")
     aen(load_controller_node,"interpolate","LINEAR")
     
 points_node = aen(load_controller_node,"points")

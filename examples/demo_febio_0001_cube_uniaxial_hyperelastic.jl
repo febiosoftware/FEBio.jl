@@ -121,22 +121,22 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="neo-Hookean")
-    aen(material_node,"E",E_youngs)
-    aen(material_node,"v",ν)
+material_node = aen(Material_node,"material"; id = "1", name="Material1", type="neo-Hookean")
+    aen(material_node,"E", E_youngs)
+    aen(material_node,"v", ν)
 
 Mesh_node = aen(febio_spec_node,"Mesh")
 
 # Nodes
 Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
     for (i,v) in enumerate(V)        
-        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = i)     
+        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = @sprintf("%i",i))     
     end
     
 # Elements
 Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
     for (i,e) in enumerate(E)     
-        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i",i))
     end
     
 # Node sets
@@ -177,12 +177,12 @@ bc_node4 = aen(Boundary_node,"bc"; name="prescribed_disp_z", node_set=bcPrescrib
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
-load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", type="loadcurve")
+load_controller_node = aen(LoadData_node,"load_controller"; id="1", name="LC_1", type="loadcurve")
     aen(load_controller_node,"interpolate","LINEAR")
     
 points_node = aen(load_controller_node,"points")
-    aen(points_node,"pt",@sprintf("%.2f, %.2f",0,0))
-    aen(points_node,"pt",@sprintf("%.2f, %.2f",1,1))
+    aen(points_node,"pt",@sprintf("%.2f, %.2f", 0.0, 0.0))
+    aen(points_node,"pt",@sprintf("%.2f, %.2f", 1.0, 1.0))
 
 Output_node = aen(febio_spec_node,"Output")
 
@@ -192,7 +192,7 @@ plotfile_node = aen(Output_node,"plotfile"; type="febio")
     aen(plotfile_node,"var"; type="relative volume")
     aen(plotfile_node,"var"; type="reaction forces")
     aen(plotfile_node,"var"; type="contact pressure")
-    aen(plotfile_node,"compression",@sprintf("%i",0))
+    aen(plotfile_node,"compression", @sprintf("%i", 0))
 
 logfile_node = aen(Output_node,"logfile"; file=filename_log)
     aen(logfile_node,"node_data"; data="ux;uy;uz", delim=",", file=filename_disp)

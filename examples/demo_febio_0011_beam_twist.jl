@@ -152,35 +152,34 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="Ogden")
+material_node = aen(Material_node,"material"; id = "1", name="Material1", type="Ogden")
     aen(material_node,"c1",c1)
     aen(material_node,"m1",m1)
     aen(material_node,"c2",c1)
     aen(material_node,"m2",-m1)
     aen(material_node,"k",k)
 
-material_node = aen(Material_node,"material"; id = 2, name="Material2", type="rigid body")
-    aen(material_node,"density",1.0)
+material_node = aen(Material_node,"material"; id = "2", name="Material2", type="rigid body")
+    aen(material_node,"density", @sprintf("%.16e", 1.0))
     aen(material_node,"center_of_mass",join([@sprintf("%.16e",x) for x ∈ V2_centre],','))
 
 Mesh_node = aen(febio_spec_node,"Mesh")
 
 # Nodes
 Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
-    for q ∈ eachindex(V)
-        # aen(Nodes_node,"node",@sprintf("%.2f, %.2f, %.2f",V[q][1],V[q][2],V[q][3]); id = q)
-        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ V[q]],','); id = q)     
+    for (i, v) ∈ enumerate(V)        
+        aen(Nodes_node,"node", join([@sprintf("%.16e", x) for x ∈ v],','); id = @sprintf("%i", i))     
     end
     
 # Elements
 Elements_node = aen(Mesh_node,"Elements"; name="Part1", type=elementType)
     for (i,e) in enumerate(E)     
-        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i))
     end
 
 Elements_node = aen(Mesh_node,"Elements"; name="Part2", type=faceType)
     for (i,e) in enumerate(F2)     
-        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i+length(E))
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i+length(E)))
     end   
 
 # Node sets
@@ -214,12 +213,12 @@ Rigid_node = aen(febio_spec_node, "Rigid")
     rigid_bc = aen(Rigid_node,"rigid_bc"; name="RigidPrescribe_end_rotation", type="rigid_rotation")
         aen(rigid_bc, "rb", 2)
         aen(rigid_bc, "dof", "Rv")
-        aen(rigid_bc, "value", alphaRotTotal; lc=1)
+        aen(rigid_bc, "value", alphaRotTotal; lc="1")
         aen(rigid_bc, "relative", 0)
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
-load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", type="loadcurve")
+load_controller_node = aen(LoadData_node,"load_controller"; id="1", name="LC_1", type="loadcurve")
     aen(load_controller_node,"interpolate","LINEAR")
     
 points_node = aen(load_controller_node,"points")
@@ -234,7 +233,7 @@ plotfile_node = aen(Output_node,"plotfile"; type="febio")
     aen(plotfile_node,"var"; type="relative volume")
     aen(plotfile_node,"var"; type="reaction forces")
     aen(plotfile_node,"var"; type="contact pressure")
-    aen(plotfile_node,"compression",@sprintf("%i",0))
+    aen(plotfile_node,"compression", @sprintf("%i",0))
 
 logfile_node = aen(Output_node,"logfile"; file=filename_log)
     aen(logfile_node,"node_data"; data="ux;uy;uz", delim=",", file=filename_disp)

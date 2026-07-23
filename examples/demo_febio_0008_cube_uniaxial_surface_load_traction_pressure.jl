@@ -114,7 +114,7 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="neo-Hookean")
+material_node = aen(Material_node,"material"; id = "1", name="Material1", type="neo-Hookean")
     aen(material_node,"E",E_youngs)
     aen(material_node,"v",ν)
 
@@ -123,19 +123,19 @@ Mesh_node = aen(febio_spec_node,"Mesh")
 # Nodes
 Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
     for (i,v) in enumerate(V)        
-        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = i)     
+        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = @sprintf("%i", i))     
     end
     
 # Elements
 Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
     for (i,e) in enumerate(E)     
-        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i))
     end
 
 surfaceName1 = "Surface_Top"
 Surface_node = aen(Mesh_node,"Surface"; name=surfaceName1)
 for (i,e) in enumerate(Fb_top)        
-    aen(Surface_node,"quad4",join([@sprintf("%i",j) for j in e], ','); id = i)
+    aen(Surface_node,"quad4",join([@sprintf("%i",j) for j in e], ','); id = @sprintf("%i", i))
 end
 
 
@@ -172,20 +172,20 @@ bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupport
 
 # Loads 
 if loadType == :pressure
-Loads_node = aen(febio_spec_node,"Loads")    
-    surface_load_node = aen(Loads_node, "surface_load"; type="pressure", surface=surfaceName1)    
-        aen(surface_load_node, "pressure", appliedPressure; lc=1)    
-        aen(surface_load_node, "symmetric_stiffness", 1)    
+    Loads_node = aen(febio_spec_node,"Loads")    
+        surface_load_node = aen(Loads_node, "surface_load"; type="pressure", surface=surfaceName1)    
+            aen(surface_load_node, "pressure", appliedPressure; lc="1")    
+            aen(surface_load_node, "symmetric_stiffness", 1)    
 elseif loadType == :traction
     Loads_node = aen(febio_spec_node,"Loads")    
     surface_load_node = aen(Loads_node, "surface_load"; type="traction", surface=surfaceName1)    
-        aen(surface_load_node, "scale", appliedPressure; lc=1)    
-        aen(surface_load_node, "traction", join([@sprintf("%.16e",x) for x ∈ (0.0, 0.0, -1.0)],','); lc=1)            
+        aen(surface_load_node, "scale", appliedPressure; lc="1")    
+        aen(surface_load_node, "traction", join([@sprintf("%.16e",x) for x ∈ (0.0, 0.0, -1.0)],','); lc="1")            
 end
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
-load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", type="loadcurve")
+load_controller_node = aen(LoadData_node,"load_controller"; id="1", name="LC_1", type="loadcurve")
     aen(load_controller_node,"interpolate","LINEAR")
     
 points_node = aen(load_controller_node,"points")
@@ -206,7 +206,6 @@ logfile_node = aen(Output_node,"logfile"; file=filename_log)
     aen(logfile_node,"node_data"; data="ux;uy;uz", delim=",", file=filename_disp)
     aen(logfile_node,"element_data"; data="sz", delim=",", file=filename_stress)
     aen(logfile_node,"node_data"; data="Rx;Ry;Rz", delim=",", file=filename_force)
-
 
 #######
 # Write FEB file

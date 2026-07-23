@@ -78,7 +78,7 @@ Note how the `material` level does not have data, just attributes.
 =#
 
 # Add a material with "attributes" (e.g. id) to the Material section 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="Neo-Hookean")
+material_node = aen(Material_node,"material"; id = "1", name="Material1", type="Neo-Hookean")
 
 #= 
 Finally the parameters `E` and `v` are added to the `material` level. We again 
@@ -88,8 +88,8 @@ simply as the third normal input argument for `aen`.
 =#
 
 # Add parameters for the material 
-aen(material_node,"E", E)
-aen(material_node,"v", v)
+aen(material_node,"E", 1.0)
+aen(material_node,"v", 0.49)
 
 #=
 The above shows an example of creating different levels, e.g. the main 

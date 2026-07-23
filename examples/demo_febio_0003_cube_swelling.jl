@@ -115,14 +115,14 @@ Constants_node = aen(Globals_node,"Constants")
 
 Material_node = aen(febio_spec_node,"Material")
 
-material_node = aen(Material_node,"material"; id = 1, name="Material1", type="solid mixture")
+material_node = aen(Material_node,"material"; id = "1", name="Material1", type="solid mixture")
     mat_axis_node = aen(material_node,"mat_axis"; type="vector")
                         aen(mat_axis_node,"a",join([@sprintf("%.16e",x) for x ∈ (1,0,0)],','))
                         aen(mat_axis_node,"a",join([@sprintf("%.16e",x) for x ∈ (0,1,0)],','))
     solid_node = aen(material_node,"solid"; type="Donnan equilibrium")
                     aen(solid_node,"phiw0",@sprintf("%.16e",0.8))
-                    aen(solid_node,"cF0",@sprintf("%.16e",1.0); lc=1)
-                    aen(solid_node,"bosm",@sprintf("%.16e",1.0); lc=2)
+                    aen(solid_node,"cF0",@sprintf("%.16e",1.0); lc="1")
+                    aen(solid_node,"bosm",@sprintf("%.16e",1.0); lc="2")
     solid_node = aen(material_node,"solid"; type="neo-Hookean")                    
                     aen(solid_node,"E",E_youngs)
                     aen(solid_node,"v",ν)
@@ -132,13 +132,13 @@ Mesh_node = aen(febio_spec_node,"Mesh")
 # Nodes
 Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
     for (i,v) in enumerate(V)        
-        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = i)     
+        aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = @sprintf("%i", i))     
     end
     
 # Elements
 Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
     for (i,e) in enumerate(E)     
-        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
+        aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i))
     end
     
 # Node sets
@@ -173,7 +173,7 @@ bc_node = aen(Boundary_node,"bc"; name="zero_displacement_z", node_set=bcSupport
 
 LoadData_node = aen(febio_spec_node,"LoadData")
 
-load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", type="loadcurve")
+load_controller_node = aen(LoadData_node,"load_controller"; id="1", name="LC_1", type="loadcurve")
     aen(load_controller_node,"interpolate","LINEAR")
     
 points_node = aen(load_controller_node,"points")
@@ -181,7 +181,7 @@ points_node = aen(load_controller_node,"points")
     aen(points_node,"pt",@sprintf("%.2f, %.2f",0.2,cF0))
     aen(points_node,"pt",@sprintf("%.2f, %.2f",1.0,cF0))
 
-load_controller_node = aen(LoadData_node,"load_controller"; id=2, name="LC_2", type="loadcurve")
+load_controller_node = aen(LoadData_node,"load_controller"; id="2", name="LC_2", type="loadcurve")
     aen(load_controller_node,"interpolate","LINEAR")
 
 points_node = aen(load_controller_node,"points")

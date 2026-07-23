@@ -175,7 +175,7 @@ function objective_FEA(x)
 
     Material_node = aen(febio_spec_node,"Material")
 
-    material_node = aen(Material_node,"material"; id = 1, name="Material1", type="Ogden unconstrained")
+    material_node = aen(Material_node,"material"; id = "1", name="Material1", type="Ogden unconstrained")
         aen(material_node,"c1", c1)
         aen(material_node,"m1", m1)
         aen(material_node,"cp", cp)
@@ -185,13 +185,13 @@ function objective_FEA(x)
     # Nodes
     Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
         for (i,v) in enumerate(V)        
-            aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = i)     
+            aen(Nodes_node,"node", join([@sprintf("%.16e",x) for x ∈ v],','); id = @sprintf("%i", i))     
         end
         
     # Elements
-    Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
+    Elements_node = aen(Mesh_node,"Elements"; name="Part1", type=elementType)
         for (i,e) in enumerate(E)     
-            aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = i)
+            aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i))
         end
         
     # Node sets
@@ -263,7 +263,7 @@ function objective_FEA(x)
 
     LoadData_node = aen(febio_spec_node,"LoadData")
 
-    load_controller_node = aen(LoadData_node,"load_controller"; id=1, name="LC_1", type="loadcurve")
+    load_controller_node = aen(LoadData_node,"load_controller"; id="1", name="LC_1", type="loadcurve")
         aen(load_controller_node,"interpolate","LINEAR")
         
     points_node = aen(load_controller_node,"points")
@@ -441,9 +441,10 @@ c1 = 0.4
 m1 = 2.0
 x0 = [c1, m1] # Initial guess
 
-# diff_exp = objective_FEA(x0, U_exp, F_exp)
-
-W = optimize(objective_FEA, x0, LevenbergMarquardt())
+x_tol = 1e-6 # Parameter tolerance 
+f_tol = 1e-6 # Function tolerance
+max_number_iterations = 100
+W = optimize(objective_FEA, x0, LevenbergMarquardt(); x_tol=x_tol, f_tol=f_tol, iterations=max_number_iterations)
 
 println("And the winner is....: ", W.minimizer)
 println("True parameters: ", [c1_true, m1_true])
