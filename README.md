@@ -27,7 +27,7 @@ julia> ]
 (@dev_Comodo) pkg> dev --local https://github.com/febiosoftware/FEBio.jl
 ```
 * Other packages can now be added to this environment as desired, e.g. [Comodo.jl](https://github.com/COMODO-research/Comodo.jl).
-* Next if one is working in an editor like VS Code or Codium, one can open the `dev_Comodo` folder there to start using this environment. 
+* Next if one is working in an editor like VS Code or Codium, one can open the `dev_FEBio` folder there to start using this environment. 
 
 ## Adding/installing FEBio
 Currently FEBio.jl does not ship with the FEBio binaries. Instead users should either obtain them from [the FEBio website](https://febio.org/), or compile their own using the [FEBio source](https://github.com/febiosoftware/FEBio). 
