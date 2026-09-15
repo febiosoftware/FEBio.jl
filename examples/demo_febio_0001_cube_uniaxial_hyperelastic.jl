@@ -231,7 +231,7 @@ Fz_curve = zeros(numInc)
 time_curve = zeros(numInc)
 for i in 0:1:numInc-1    
     Fz = [d[3] for d in DD_force[i].data]
-    Fz_curve[i+1] = sum(Fz[indNodes_bcPrescribeList_z])
+    Fz_curve[i+1] = -sum(Fz[indNodes_bcPrescribeList_z])
     time_curve[i+1] = DD_force[i].time
 end
 

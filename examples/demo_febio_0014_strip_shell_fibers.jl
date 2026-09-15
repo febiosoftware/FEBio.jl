@@ -2,28 +2,50 @@ using Comodo
 using Comodo.GeometryBasics
 using Comodo.GLMakie
 using Comodo.LinearAlgebra
-using Comodo.Statistics
 using FEBio
 using FEBio.XML
 using Printf
 
 ######
+GLMakie.closeall()
+
 # Set FEBio exec path or name
 const FEBIO_EXEC = "febio4" # FEBio executable
 
 ###### 
 # Control parameters 
-pointSpacing = 3.0
-appliedForce = (0.0, 0.0, -1e-3)
 
-# Material parameters
-c1 = 1e-3 #Shear-modulus-like parameter
-m1 = 8  #Material parameter setting degree of non-linearity
-k_factor = 1e2  #Bulk modulus factor 
-k = c1*k_factor #Bulk modulus
+strainApplied = 0.6 # Equivalent linear strain
+loadingOption = "tension" # "tension" or "compression"
+elementType = "hex20" # "hex8"
+if elementType == "hex8"
+    pointSpacing = 3.0/2.0
+elseif elementType == "hex20"
+    pointSpacing = 3.0
+end
+
+c = 1.0
+m = 2.0
+κp = c*100
+d = 1e-9
+shellThickness = 0.5
+
+ξ₁ = 50.0
+α₁ = 0.0
+β₁ = 2.0
+λ0₁ = 1.0
+θ₁ = 90.0
+ϕ₁ = 45.0
+
+ξ₂ = 50.0
+α₂ = 0.0
+β₂ = 2.0
+λ0₂ = 1.0
+θ₂ = θ₁
+ϕ₂ = ϕ₁ + 90.0
 
 # FEA control settings
-numTimeSteps = 10 # Number of time steps desired
+numTimeSteps = 20 # Number of time steps desired
 max_refs = 50 # Max reforms
 max_ups = 0 # Set to zero to use full-Newton iterations
 opt_iter = 10 # Optimum number of iterations
@@ -34,36 +56,69 @@ symmetric_stiffness = 1
 min_residual = 1e-30
 
 ###### 
-boxDim = [10.0, 40.0, 10.0] # Dimensionsions for the box in each direction
+# Creating a hexahedral mesh for a cube 
+boxDim = [5.0, 40.0, 40.0] # Dimensionsions for the box in each direction
+boxEl1 = ceil(Int64, boxDim[1]/pointSpacing)
+boxEl2 = ceil(Int64, boxDim[2]/pointSpacing)
+boxEl3 = ceil(Int64, (boxDim[3]*(1.0+strainApplied))/pointSpacing)
+if !iseven(boxEl3)
+    boxEl3+=1
+end
 
-testCase = 2
-if testCase == 1
-    # Creating a hexahedral mesh for a cube     
-    boxEl = ceil.(Int64, boxDim ./ pointSpacing) # Number of elements to use in each direction 
-    E, V, F, Fb, Cb = hexbox(boxDim, boxEl)
-    elementType = "hex8"
-    numSides = 6
-elseif testCase == 2
-    # Creating a hexahedral mesh for a cube     
-    boxEl = ceil.(Int64, boxDim ./ pointSpacing) # Number of elements to use in each direction 
-    E, V, F, Fb, Cb = hexbox(boxDim, boxEl)
-    elementType = "hex20"
-    E, V = hex8_hex20(E, V)
+boxEl = [boxEl1, boxEl2, boxEl3]
+
+E, V, F, Fb, CFb_type = hexbox(boxDim, boxEl)
+
+if elementType == "hex20"
+    E, V = hex8_hex20(E,V)
     F = element2faces(E)
     indBoundary = boundaryfaceindices(F)
     Fb = F[indBoundary]
     faceType = "quad8"
-    numSides = 6
-elseif testCase == 3
-    E, V, Fb, Cb = tetbox(boxDim, pointSpacing; stringOpt="paAqYQ", region_vol=nothing)
-    F = element2faces(E)
-    elementType = "tet4"
-    numSides = 4
+else 
+    faceType = "quad4"
 end
 
-# Create node sets to define boundary conditions later 
-indNodesBack = elements2indices(Fb[Cb .== 4])
-indNodesFront = elements2indices(Fb[Cb .== 3])
+# Create face sets to define node sets later 
+Fb_bottom = Fb[CFb_type .== 1]
+Fb_top = Fb[CFb_type .== 2]
+Fb_s1 = Fb[CFb_type .== 6]
+Fb_s2 = Fb[CFb_type .== 3]
+
+if elementType == "hex20"
+    E2 = ngon8_quad8(Fb_s1)
+else
+    E2 = Fb_s1 
+end
+# Visualisation
+
+cmap_cat = Makie.Categorical(:Spectral) 
+Fbs, Vs = separate_vertices(Fb, V)
+Cb_Vs = simplex2vertexdata(Fbs, CFb_type, Vs)
+
+fig = Figure(size=(1200, 1000))
+
+ax1 = AxisGeom(fig[1, 1], title="Boundary labels")
+hp1 = meshplot!(ax1, Fbs, Vs; color=Cb_Vs, strokewidth=1.0, colormap=cmap_cat)
+Colorbar(fig[1, 2], hp1)
+
+ax2 = AxisGeom(fig[1, 3], title="Boundary conditions and shell layer")
+
+hp2 = meshplot!(ax2, Fb, V; color=(:white, 0.25), strokewidth=0.0, transparency=true)
+hp3 = meshplot!(ax2, Fb_s1, V; color=:green, strokewidth=1.0)
+hp4 = meshplot!(ax2, Fb_top, V; color=:red, strokewidth=1.0)
+hp5 = meshplot!(ax2, Fb_bottom, V; color=:blue, strokewidth=1.0)
+
+# scatter!(ax1, V, color=:black, markersize=10, depth_shift=-0.01f0)
+screen = display(GLMakie.Screen(), fig)
+
+
+# Defining displacement of the top surface in terms of x, y, and z components
+if loadingOption=="tension"
+    displacement_prescribed = strainApplied*boxDim[3]
+elseif loadingOption=="compression"
+    displacement_prescribed = -strainApplied*boxDim[3]
+end
 
 ######
 # Define file names
@@ -77,7 +132,6 @@ filename_xplt = joinpath(saveDir, "febioInputFile_01.xplt") # The XPLT file for 
 filename_log = joinpath(saveDir, "febioInputFile_01_LOG.txt") # The log file featuring the full FEBio terminal output stream
 filename_disp = "febioInputFile_01_DISP.txt" # A log file for results saved in same directory as .feb file  e.g. nodal displacements
 filename_stress = "febioInputFile_01_STRESS.txt"
-
 ######
 # Define febio input file XML
 doc, febio_spec_node = feb_doc_initialize()
@@ -146,12 +200,62 @@ aen(Constants_node, "F", 9.6485000e-05)
 
 Material_node = aen(febio_spec_node, "Material")
 
-material_node = aen(Material_node, "material"; id="1", name="Material1", type="Ogden")
-aen(material_node, "c1", c1)
-aen(material_node, "m1", m1)
-aen(material_node, "c2", c1)
-aen(material_node, "m2", -m1)
-aen(material_node, "k", k)
+material_node = aen(Material_node, "material"; id="1", name="Material1", type="Ogden unconstrained")
+aen(material_node, "c1", c)
+aen(material_node, "m1", m)
+aen(material_node, "c2", c)
+aen(material_node, "m2", -m)
+aen(material_node, "cp", κp)
+aen(material_node, "density", d)
+
+material_node = aen(Material_node, "material"; id="2", name="Material2", type="solid mixture")
+
+solid_node_01 = aen(material_node, "solid"; type="Ogden unconstrained")
+aen(solid_node_01, "c1", c)
+aen(solid_node_01, "m1", m)
+aen(solid_node_01, "c2", c)
+aen(solid_node_01, "m2", -m)
+aen(solid_node_01, "cp", κp)
+aen(solid_node_01, "density", d)
+
+solid_node_02 = aen(material_node, "solid"; type="fiber-exp-pow")
+aen(solid_node_02, "ksi", ξ₁)
+aen(solid_node_02, "alpha", α₁)
+aen(solid_node_02, "beta", β₁)
+aen(solid_node_02, "lam0", λ0₁)
+mat_axis_node = aen(solid_node_02, "fiber"; type="angles")
+aen(mat_axis_node, "theta", θ₁)
+aen(mat_axis_node, "phi", ϕ₁)
+
+solid_node_03 = aen(material_node, "solid"; type="fiber-exp-pow")
+aen(solid_node_03, "ksi", ξ₂)
+aen(solid_node_03, "alpha", α₂)
+aen(solid_node_03, "beta", β₂)
+aen(solid_node_03, "lam0", λ0₂)
+mat_axis_node = aen(solid_node_03, "fiber"; type="angles")
+aen(mat_axis_node, "theta", θ₂)
+aen(mat_axis_node, "phi", ϕ₂)
+
+# mat_axis_node = aen(solid_node_02,"mat_axis"; type="vector")
+# aen(mat_axis_node,"a", join([@sprintf("%.16e",x) for x ∈ [1.0, 0.0, 0.0]]))
+# aen(mat_axis_node,"d", join([@sprintf("%.16e",x) for x ∈ [0.0, 1.0, 0.0]]))
+
+# <material id="1" type="solid mixture">
+#     <mat_axis type="local">0,0,0</mat_axis>
+#     <solid type="neo-Hookean">
+#         <E>1000.0</E>
+#         <v>0.45</v>
+#     </solid>
+#     <solid type="fiber-exp-pow">
+#         <ksi>5</ksi>
+#         <alpha>20</alpha>
+#         <beta>3</beta>
+#         <mat_axis type="angles">
+# <theta>0</theta>
+# <phi>90</phi>
+#         </mat_axis>
+#     </solid>
+# </material>
 
 Mesh_node = aen(febio_spec_node, "Mesh")
 
@@ -163,29 +267,43 @@ end
 
 # Elements
 Elements_node = aen(Mesh_node, "Elements"; name="Part1", type=elementType)
-for (i, e) in enumerate(E)
-    aen(Elements_node, "elem", join([@sprintf("%i", i) for i ∈ e], ", "); id=@sprintf("%i", i))
+for (iElem, e) in enumerate(E)
+    aen(Elements_node, "elem", join([@sprintf("%i", i) for i ∈ e], ", "); id=@sprintf("%i", iElem))
+end
+
+Elements_node = aen(Mesh_node, "Elements"; name="Part2", type=faceType)
+for (i, e) in enumerate(E2)
+    iElem = i + length(E)
+    aen(Elements_node, "elem", join([@sprintf("%i", i) for i ∈ e], ", "); id=@sprintf("%i", iElem))
 end
 
 # Node sets
-bcSupportList = "bcSupportList"
-bcPrescribe = "bcPrescribe"
-aen(Mesh_node, "NodeSet", join([@sprintf("%i", x) for x ∈ indNodesBack], ','); name=bcSupportList)
-aen(Mesh_node, "NodeSet", join([@sprintf("%i", x) for x ∈ indNodesFront], ','); name=bcPrescribe)
+bcPrescribeList_z = "bcPrescribeList_z"
+bcSupportList_z = "bcSupportList_z"
+aen(Mesh_node, "NodeSet", join([@sprintf("%i", x) for x ∈ elements2indices(Fb_top)], ','); name=bcPrescribeList_z)
+aen(Mesh_node, "NodeSet", join([@sprintf("%i", x) for x ∈ elements2indices(Fb_bottom)], ','); name=bcSupportList_z)
 
 MeshDomains_node = aen(febio_spec_node, "MeshDomains")
-aen(MeshDomains_node, "SolidDomain"; mat="Material1", name="Part1")
+SolidDomain_node = aen(MeshDomains_node, "SolidDomain"; mat="Material1", name="Part1")
+ShellDomain_node = aen(MeshDomains_node, "ShellDomain"; mat="Material2", name="Part2")
+aen(ShellDomain_node, "shell_thickness", shellThickness)
 
 Boundary_node = aen(febio_spec_node, "Boundary")
 
-bc_node = aen(Boundary_node, "bc"; name="zero_displacement_xyz", node_set=bcSupportList, type="zero displacement")
+bc_node = aen(Boundary_node, "bc"; name="zero_displacement_z_bottom", node_set=bcSupportList_z, type="zero displacement")
 aen(bc_node, "x_dof", 1)
 aen(bc_node, "y_dof", 1)
 aen(bc_node, "z_dof", 1)
 
-Loads_node = aen(febio_spec_node, "Loads")
-load_node = aen(Loads_node, "nodal_load"; name="PrescribedForce", node_set=bcPrescribe, type="nodal_force")
-aen(load_node, "value", join([@sprintf("%.16e", x) for x ∈ appliedForce ./ length(bcPrescribe)], ','); lc=@sprintf("%i", 1))
+bc_node = aen(Boundary_node, "bc"; name="zero_displacement_xy_top", node_set=bcPrescribeList_z, type="zero displacement")
+aen(bc_node, "x_dof", 1)
+aen(bc_node, "y_dof", 1)
+aen(bc_node, "z_dof", 0)
+
+bc_node4 = aen(Boundary_node, "bc"; name="prescribed_disp_z", node_set=bcPrescribeList_z, type="prescribed displacement")
+aen(bc_node4, "dof", "z")
+aen(bc_node4, "value", displacement_prescribed; lc=@sprintf("%i", 1))
+aen(bc_node4, "relative", @sprintf("%i", 0))
 
 LoadData_node = aen(febio_spec_node, "LoadData")
 
@@ -244,8 +362,6 @@ max_p = maxp([maxp(V) for V in VT])
 
 #######
 # Visualization
-GLMakie.closeall()
-
 fig = Figure(size=(800, 800))
 stepStart = incRange[end]
 ax = AxisGeom(fig[1, 1], title="Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
@@ -263,37 +379,3 @@ slidercontrol(hSlider, ax)
 
 screen = display(GLMakie.Screen(), fig)
 GLMakie.set_title!(screen, "FEBio example")
-
-
-# #######
-
-# S_E = [s[1] for s in DD_stress[stepStart].data]
-# S_F = repeat(S_E,inner=numSides)
-# Fs,Vs = separate_vertices(F,VT[stepStart+1])
-# S_Vs = simplex2vertexdata(Fs,S_F)
-
-# fig = Figure(size=(800,800))
-# ax = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-# hp = meshplot!(ax, Fs, Vs; strokewidth=2, color=S_Vs , colormap = :viridis)
-
-# Colorbar(fig[1, 2], hp.plots[1], label = "S1", ticks = 0.0:0.125:1.0) 
-
-# hSlider = Slider(fig[2, 1], range = incRange, startvalue = stepStart,linewidth=30)
-# on(hSlider.value) do stepIndex 
-#     S_E = [s[1] for s in DD_stress[stepIndex].data]
-#     S_F = repeat(S_E,inner=numSides)
-#     Fs,Vs = separate_vertices(F,VT[stepIndex+1])
-#     S_Vs = simplex2vertexdata(Fs,S_F)
-
-#     hp[1] = GeometryBasics.Mesh(Vs, Fs)
-#     hp.color = S_Vs    
-
-#     J_mean = mean(J_E)
-#     # hp.color = UT_mag[stepIndex+1]
-#     ax.title = "Step: $stepIndex"
-# end
-
-# slidercontrol(hSlider,ax)
-
-# screen = display(GLMakie.Screen(), fig)
-# GLMakie.set_title!(screen, "FEBio example")

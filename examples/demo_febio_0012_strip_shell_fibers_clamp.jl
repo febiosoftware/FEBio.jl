@@ -521,7 +521,7 @@ fig = Figure(size=(800,800))
 stepStart = incRange[end]
 timeStart = time_vec[stepStart+1]
 ax = AxisGeom(fig[1, 1], title = "Step: $stepStart, Time: $timeStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-hp = meshplot!(ax, Fb, VT[end]; strokewidth=2, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral),colorrange=(0,maximum(ut_mag_max)))
+hp = meshplot!(ax, Fb, VT[end]; strokewidth=0.5, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral),colorrange=(0,maximum(ut_mag_max)))
 Colorbar(fig[1, 2],hp.plots[1],label = "Displacement magnitude [mm]") 
 
 hSlider = Slider(fig[2, 1], range = incRange, startvalue = stepStart,linewidth=30)
