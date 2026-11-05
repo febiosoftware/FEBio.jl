@@ -145,15 +145,6 @@ material_node = aen(Material_node,"material"; id = "1", name="Material1", type="
             aen(mat_axis_node,"theta", theta)
             aen(mat_axis_node,"phi", phi)
 
-    # solid_node_03 = aen(material_node,"solid"; type="fiber-exp-pow")
-    #     aen(solid_node_03,"ksi", ksi)
-    #     aen(solid_node_03,"alpha", alpha)
-    #     aen(solid_node_03,"beta", beta)
-    #     aen(solid_node_03,"lam0", lam0)
-    #     mat_axis_node = aen(solid_node_03,"fiber"; type="angles")
-    #         aen(mat_axis_node,"theta", theta)
-    #         aen(mat_axis_node,"phi", -1.0 * phi)
-
 Mesh_node = aen(febio_spec_node,"Mesh")
 
 # Nodes
@@ -163,7 +154,7 @@ Nodes_node = aen(Mesh_node,"Nodes"; name="nodeSet_all")
     end
     
 # Elements
-Elements_node = aen(Mesh_node,"Elements"; name="Part1", type=elementType)
+Elements_node = aen(Mesh_node,"Elements"; name="Part1", type="hex8")
     for (i,e) in enumerate(E)     
         aen(Elements_node,"elem", join([@sprintf("%i", i) for i ∈ e], ", "); id = @sprintf("%i", i))
     end

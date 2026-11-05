@@ -2,6 +2,7 @@ using Comodo
 using Comodo.GeometryBasics
 using Comodo.GLMakie
 using Comodo.LinearAlgebra
+using Comodo.Statistics
 using FEBio
 using FEBio.XML
 using Printf 
@@ -246,10 +247,12 @@ UT_mag = fill(zeros(length(V)),numInc)
 ut_mag_max = zeros(numInc)
 Sz_max = zeros(numInc)
 Sz_min = zeros(numInc)
+Uz_curve = zeros(numInc)
 @inbounds for i in 0:1:numInc-1    
     UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
     VT[i+1] += UT[i+1]
     UT_mag[i+1] = norm.(UT[i+1])
+    Uz_curve[i+1] = mean([u[3] for u in UT[i+1][indNodes_bcPrescribeList_z]])
     ut_mag_max[i+1] = maximum(UT_mag[i+1]) 
 
     Sz = [d[1] for d in DD_stress[i].data]
@@ -276,9 +279,9 @@ ax2 = AxisGeom(fig[1, 3], title = "Step: $stepStart", limits=(min_p[1], max_p[1]
 hp2 = meshplot!(ax2, Fb, VT[end]; strokewidth=2, color=SzT[end], transparency=false, colormap = :viridis,colorrange=(minimum(Sz_min), maximum(Sz_max)))
 Colorbar(fig[1, 4], hp2.plots[1], label = "σ [MPa]") 
 
-ax3 = Axis(fig[1, 5], title = "Step: $stepStart", aspect = AxisAspect(1), xlabel="Time [s]", ylabel="Force [N]")
-lines!(ax3, time_curve, Fz_curve, color=:red, linewidth=3)
-hp3 = scatter!(ax3, Point{2,Float64}(time_curve[stepStart+1], Fz_curve[stepStart+1]), markersize=15, color=:red)
+ax3 = Axis(fig[1, 5], title = "Step: $stepStart", aspect = AxisAspect(1), xlabel="Displacement [mm]", ylabel="Force [N]")
+lines!(ax3, Uz_curve, Fz_curve, color=:red, linewidth=3)
+hp3 = scatter!(ax3, Point{2,Float64}(Uz_curve[stepStart+1], Fz_curve[stepStart+1]), markersize=15, color=:red)
 hSlider = Slider(fig[2, :], range = incRange, startvalue = stepStart,linewidth=30)
 on(hSlider.value) do stepIndex 
     hp1[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
@@ -287,7 +290,7 @@ on(hSlider.value) do stepIndex
     hp2[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
     hp2.color = SzT[stepIndex+1]
         
-    hp3[1] = Point{2,Float64}(time_curve[stepIndex+1], Fz_curve[stepIndex+1])
+    hp3[1] = Point{2,Float64}(Uz_curve[stepIndex+1], Fz_curve[stepIndex+1])
     ax1.title = "Step: $stepIndex"
     ax2.title = "Step: $stepIndex"
     ax3.title = "Step: $stepIndex"

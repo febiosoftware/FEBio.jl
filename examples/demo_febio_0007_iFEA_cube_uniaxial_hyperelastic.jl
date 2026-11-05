@@ -43,7 +43,7 @@ F_exp = fit_data["Force"]
 ###### 
 # Control parameters 
 sampleSize = 10.0
-strainApplied = 0.5 # Equivalent linear strain
+strainApplied = 0.4 # Equivalent linear strain
 bcOption = :uniaxial # :uniaxial or :constrained
 
 if bcOption == :uniaxial
@@ -170,10 +170,13 @@ function objective_FEA(x)
 
     Material_node = aen(febio_spec_node, "Material")
 
+    # 2nd order Ogden as per Moerman et al. 2016
     material_node = aen(Material_node, "material"; id="1", name="Material1", type="Ogden unconstrained")
-    aen(material_node, "c1", c1)
-    aen(material_node, "m1", m1)
-    aen(material_node, "cp", cp)
+    aen(material_node, "c1",  c1)
+    aen(material_node, "m1",  m1)
+    aen(material_node, "c2",  c1)
+    aen(material_node, "m2", -m1)
+    aen(material_node, "cp",  cp)
 
     Mesh_node = aen(febio_spec_node, "Mesh")
 
@@ -334,7 +337,7 @@ function objective_FEA(x)
         Sz_max[i+1] = maximum(Sz)
         Fz = [d[3] for d in DD_force[i].data]
         Fz_curve[i+1] = -sum(Fz[indNodes_bcPrescribeList_z])
-        Uz_curve[i+1] = mean([u[3] for u in DD_disp[i].data])
+        Uz_curve[i+1] = mean([u[3] for u in DD_disp[i].data][indNodes_bcPrescribeList_z])
         time_curve[i+1] = DD_force[i].time
     end
 
@@ -431,14 +434,19 @@ m1_true = 6.3
 cp_true = 100 * c1_true
 
 # Initial Ogden parameters 
-c1 = 0.4
-m1 = 2.0
+c1 = c1_true/2
+m1 = m1_true/2
 x0 = [c1, m1] # Initial guess
 
-x_tol = 1e-3 # Parameter tolerance 
-f_tol = 1e-3 # Function tolerance
-max_number_iterations = 100
-W = optimize(objective_FEA, x0, LevenbergMarquardt(); x_tol=x_tol, f_tol=f_tol, iterations=max_number_iterations)
+run_mode = :optimisation 
 
-println("And the winner is....: ", W.minimizer)
-println("True parameters: ", [c1_true, m1_true])
+if run_mode==:optimisation
+    x_tol = 1e-3 # Parameter tolerance 
+    f_tol = 1e-3 # Function tolerance
+    max_number_iterations = 250
+    W = optimize(objective_FEA, x0, LevenbergMarquardt(); x_tol=x_tol, f_tol=f_tol, iterations=max_number_iterations)
+    println("And the winner is....: ", W.minimizer)
+    println("True parameters: ", [c1_true, m1_true])
+elseif run_mode==:testing
+    objective_FEA(x0)
+end
