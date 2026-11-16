@@ -60,7 +60,7 @@ A detailed roadmap is under construction but the below is a list of major compon
 
 - [x] Julia based .feb file creation, import, and editing  
 - [x] Julia calls/triggers FEBio executable
-- [ ] Julia monitors/polices FEBio simulation progress
+- [x] Julia monitors/polices FEBio simulation progress
 - [x] Julia based log-file importing 
 - [ ] Julia based .xplt-file importing 
 - [ ] Ship with or download FEBio binaries upon package adding, and configure with FEBio.jl automatically  
