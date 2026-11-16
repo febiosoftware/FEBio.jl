@@ -56,7 +56,7 @@ hp1 = meshplot!(ax1, Fbs, Vbs; strokewidth=2, color=Cbs, colormap = Reverse(:Spe
 Colorbar(fig[1, 2], hp1.plots[1], label = "Youngs modulus") 
 
 ax2 = AxisGeom(fig[1, 3], title = "Boundary conditions")
-hp2 = meshplot!(ax2, Fb, V; strokewidth=0.0, color=(:white, 0.5), transparency=true, colormap = :viridis,colorrange=(minimum(Sz_min), maximum(Sz_max)))
+hp2 = meshplot!(ax2, Fb, V; strokewidth=0.0, color=(:white, 0.5), transparency=true)
 scatter!(ax2, V[indNodes_bcPrescribeList_z], color=:red, markersize=10)
 scatter!(ax2, V[indNodes_bcSupportList_xyz], color=:black, markersize=10)
 
