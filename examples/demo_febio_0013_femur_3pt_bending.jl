@@ -482,93 +482,94 @@ aen(logfile_node, "element_data"; data="s1;s2;s3", delim=",", file=filename_stre
 # Write FEB file
 XML.write(filename_FEB, doc)
 
-# #######
+#######
 # Run FEBio
-run_febio(filename_FEB, FEBIO_EXEC)
+run_flag = run_febio(filename_FEB, filename_log; febio_path="febio4", run_mode=:external, max_wait_time=30.0, quiet=false)   
+##
+if run_flag == :normal
+    # Import results
+    DD_disp = read_logfile(joinpath(saveDir, filename_disp))
+    DD_stress = read_logfile(joinpath(saveDir, filename_stress))
+    numInc = length(DD_disp)
+    incRange = 0:1:(numInc-1)
 
-# #######
-# Import results
-DD_disp = read_logfile(joinpath(saveDir, filename_disp))
-DD_stress = read_logfile(joinpath(saveDir, filename_stress))
-numInc = length(DD_disp)
-incRange = 0:1:(numInc-1)
-
-# Create time varying vectors
-UT = fill(V, numInc)
-VT = fill(V, numInc)
-UT_mag = fill(zeros(length(V)), numInc)
-ut_mag_max = zeros(numInc)
-@inbounds for i in 0:1:(numInc-1)
-    UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
-    VT[i+1] += UT[i+1]
-    UT_mag[i+1] = norm.(UT[i+1])
-    ut_mag_max[i+1] = maximum(UT_mag[i+1])
-end
-
-function get_elementData_limits(D)
-    s1_max = -Inf
-    s1_min = Inf
-    @inbounds for i in 0:1:(length(D)-1)
-        S = [s[1] for s in D[i].data]
-        s1_max = max(s1_max, maximum(S))
-        s1_min = min(s1_min, minimum(S))
+    # Create time varying vectors
+    UT = fill(V, numInc)
+    VT = fill(V, numInc)
+    UT_mag = fill(zeros(length(V)), numInc)
+    ut_mag_max = zeros(numInc)
+    @inbounds for i in 0:1:(numInc-1)
+        UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
+        VT[i+1] += UT[i+1]
+        UT_mag[i+1] = norm.(UT[i+1])
+        ut_mag_max[i+1] = maximum(UT_mag[i+1])
     end
-    return s1_min, s1_max
-end
-s1_min, s1_max = get_elementData_limits(DD_stress)
-min_p = minp([minp(V) for V in VT])
-max_p = maxp([maxp(V) for V in VT])
 
-## Visualization
+    function get_elementData_limits(D)
+        s1_max = -Inf
+        s1_min = Inf
+        @inbounds for i in 0:1:(length(D)-1)
+            S = [s[1] for s in D[i].data]
+            s1_max = max(s1_max, maximum(S))
+            s1_min = min(s1_min, minimum(S))
+        end
+        return s1_min, s1_max
+    end
+    s1_min, s1_max = get_elementData_limits(DD_stress)
+    min_p = minp([minp(V) for V in VT])
+    max_p = maxp([maxp(V) for V in VT])
 
-fig = Figure(size=(1200, 800))
-stepStart = incRange[end]
-ax1 = AxisGeom(fig[1, 1], title="Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=0.0, color=UT_mag[end], transparency=false, colormap=Reverse(:Spectral), colorrange=(0, maximum(ut_mag_max)))
-hp2 = meshplot!(ax1, F2, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
-hp3 = meshplot!(ax1, F3, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
-hp4 = meshplot!(ax1, F4, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
+    ## Visualization
 
-Colorbar(fig[1, 2], hp1, label="Displacement magnitude [mm]")
+    fig = Figure(size=(1200, 800))
+    stepStart = incRange[end]
+    ax1 = AxisGeom(fig[1, 1], title="Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+    hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=0.0, color=UT_mag[end], transparency=false, colormap=Reverse(:Spectral), colorrange=(0, maximum(ut_mag_max)))
+    hp2 = meshplot!(ax1, F2, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
+    hp3 = meshplot!(ax1, F3, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
+    hp4 = meshplot!(ax1, F4, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
 
-S_E = [s[1] for s in DD_stress[stepStart].data]
-S_F = repeat(S_E[1:length(E)], inner=4)
-indB = boundaryfaceindices(F)
+    Colorbar(fig[1, 2], hp1, label="Displacement magnitude [mm]")
 
-# Fs,Vs = separate_vertices(F[indB],VT[stepStart+1])Cbs
-S_Vs = simplex2vertexdata(F[indB], S_F[indB], V)
-
-ax2 = AxisGeom(fig[1, 3], title="Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-hp5 = meshplot!(ax2, F[indB], VT[end]; strokewidth=0.0, color=S_Vs, colormap=:viridis, colorrange=(s1_min/30.0, s1_max/30.0))
-hp6 = meshplot!(ax2, F2, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
-hp7 = meshplot!(ax2, F3, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
-hp8 = meshplot!(ax2, F4, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
-
-Colorbar(fig[1, 4], hp5, label="S1")
-
-hSlider = Slider(fig[2, :], range=incRange, startvalue=stepStart, linewidth=30)
-on(hSlider.value) do stepIndex
-    hp1[1] = GeometryBasics.Mesh(VT[stepIndex+1], Fb)
-    hp1.color = UT_mag[stepIndex+1]
-
-    hp2[1] = GeometryBasics.Mesh(VT[stepIndex+1], F2)
-    hp3[1] = GeometryBasics.Mesh(VT[stepIndex+1], F3)
-    hp4[1] = GeometryBasics.Mesh(VT[stepIndex+1], F4)
-
-    ax1.title = "Step: $stepIndex"
-    S_E = [s[1] for s in DD_stress[stepIndex].data]
+    S_E = [s[1] for s in DD_stress[stepStart].data]
     S_F = repeat(S_E[1:length(E)], inner=4)
-    # Fs,Vs = separate_vertices(F[indB],VT[stepIndex+1])
+    indB = boundaryfaceindices(F)
+
+    # Fs,Vs = separate_vertices(F[indB],VT[stepStart+1])Cbs
     S_Vs = simplex2vertexdata(F[indB], S_F[indB], V)
 
-    hp5[1] = GeometryBasics.Mesh(VT[stepIndex+1], F[indB])
-    hp5.color = S_Vs
-    hp6[1] = GeometryBasics.Mesh(VT[stepIndex+1], F2)
-    hp7[1] = GeometryBasics.Mesh(VT[stepIndex+1], F3)
-    hp8[1] = GeometryBasics.Mesh(VT[stepIndex+1], F4)
-    ax2.title = "Step: $stepIndex"
-end
-slidercontrol(hSlider, ax1)
+    ax2 = AxisGeom(fig[1, 3], title="Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+    hp5 = meshplot!(ax2, F[indB], VT[end]; strokewidth=0.0, color=S_Vs, colormap=:viridis, colorrange=(s1_min/30.0, s1_max/30.0))
+    hp6 = meshplot!(ax2, F2, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
+    hp7 = meshplot!(ax2, F3, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
+    hp8 = meshplot!(ax2, F4, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
 
-screen = display(GLMakie.Screen(), fig)
-GLMakie.set_title!(screen, "FEBio example")
+    Colorbar(fig[1, 4], hp5, label="S1")
+
+    hSlider = Slider(fig[2, :], range=incRange, startvalue=stepStart, linewidth=30)
+    on(hSlider.value) do stepIndex
+        hp1[1] = GeometryBasics.Mesh(VT[stepIndex+1], Fb)
+        hp1.color = UT_mag[stepIndex+1]
+
+        hp2[1] = GeometryBasics.Mesh(VT[stepIndex+1], F2)
+        hp3[1] = GeometryBasics.Mesh(VT[stepIndex+1], F3)
+        hp4[1] = GeometryBasics.Mesh(VT[stepIndex+1], F4)
+
+        ax1.title = "Step: $stepIndex"
+        S_E = [s[1] for s in DD_stress[stepIndex].data]
+        S_F = repeat(S_E[1:length(E)], inner=4)
+        # Fs,Vs = separate_vertices(F[indB],VT[stepIndex+1])
+        S_Vs = simplex2vertexdata(F[indB], S_F[indB], V)
+
+        hp5[1] = GeometryBasics.Mesh(VT[stepIndex+1], F[indB])
+        hp5.color = S_Vs
+        hp6[1] = GeometryBasics.Mesh(VT[stepIndex+1], F2)
+        hp7[1] = GeometryBasics.Mesh(VT[stepIndex+1], F3)
+        hp8[1] = GeometryBasics.Mesh(VT[stepIndex+1], F4)
+        ax2.title = "Step: $stepIndex"
+    end
+    slidercontrol(hSlider, ax1)
+
+    screen = display(GLMakie.Screen(), fig)
+    GLMakie.set_title!(screen, "FEBio example")
+end

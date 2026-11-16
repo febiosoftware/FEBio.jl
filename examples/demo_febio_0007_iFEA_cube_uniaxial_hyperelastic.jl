@@ -289,143 +289,149 @@ function objective_FEA(x)
 
     #######
     # Run FEBio
-    run_febio(filename_FEB, FEBIO_EXEC)
+    run_flag = run_febio(filename_FEB, filename_log; febio_path="febio4", run_mode=:external, max_wait_time=30.0, quiet=false)   
+    ##
+    if run_flag == :normal
+        # Import results
 
-    #######
-    # Import results
-    DD_disp = read_logfile(joinpath(saveDir, filename_disp))
-    DD_stress = read_logfile(joinpath(saveDir, filename_stress))
-    DD_force = read_logfile(joinpath(saveDir, filename_force))
-    numInc = length(DD_disp)
-    incRange = 0:1:(numInc-1)
+        #######
+        # Import results
+        DD_disp = read_logfile(joinpath(saveDir, filename_disp))
+        DD_stress = read_logfile(joinpath(saveDir, filename_stress))
+        DD_force = read_logfile(joinpath(saveDir, filename_force))
+        numInc = length(DD_disp)
+        incRange = 0:1:(numInc-1)
 
-    F = element2faces(E)
-    indBoundaryFaces = boundaryfaceindices(F)
-    Fb = F[indBoundaryFaces]
-    # Fbs, Vs = separate_vertices(Fb,V)
-    Sz = [d[1] for d in DD_stress[numInc-1].data]
-    Sz_F = repeat(Sz, inner=6)
-    Sz_Fb = Sz_F[indBoundaryFaces]
-    Sz_V = simplex2vertexdata(Fb, Sz_Fb, V)
-
-    #######
-    # Visualization
-
-    # Create time varying vectors
-    global UT = fill(V, numInc)
-    global VT = fill(V, numInc)
-    global SzT = fill(Sz_V, numInc)
-    global UT_mag = fill(zeros(length(V)), numInc)
-    global ut_mag_max = zeros(numInc)
-    global Sz_max = zeros(numInc)
-    global Sz_min = zeros(numInc)
-    global Fz_curve = zeros(numInc)
-    global Uz_curve = zeros(numInc)
-    time_curve = zeros(numInc)
-    @inbounds for i in 0:1:(numInc-1)
-        UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
-        VT[i+1] += UT[i+1]
-        UT_mag[i+1] = norm.(UT[i+1])
-        ut_mag_max[i+1] = maximum(UT_mag[i+1])
-
-        Sz = [d[1] for d in DD_stress[i].data]
+        F = element2faces(E)
+        indBoundaryFaces = boundaryfaceindices(F)
+        Fb = F[indBoundaryFaces]
+        # Fbs, Vs = separate_vertices(Fb,V)
+        Sz = [d[1] for d in DD_stress[numInc-1].data]
         Sz_F = repeat(Sz, inner=6)
         Sz_Fb = Sz_F[indBoundaryFaces]
         Sz_V = simplex2vertexdata(Fb, Sz_Fb, V)
-        SzT[i+1] = Sz_V
-        Sz_min[i+1] = minimum(Sz)
-        Sz_max[i+1] = maximum(Sz)
-        Fz = [d[3] for d in DD_force[i].data]
-        Fz_curve[i+1] = -sum(Fz[indNodes_bcPrescribeList_z])
-        Uz_curve[i+1] = mean([u[3] for u in DD_disp[i].data][indNodes_bcPrescribeList_z])
-        time_curve[i+1] = DD_force[i].time
-    end
 
-    min_p = minp([minp(V) for V in VT])
-    max_p = maxp([maxp(V) for V in VT])
+        #######
+        # Visualization
 
-    # Evaluate objective 
-    # Fz_exp = lerp(U_exp, F_exp, Uz_curve) 
-    # diff_exp = Fz_curve .- Fz_exp # Linearly interpolate data 
+        # Create time varying vectors
+        global UT = fill(V, numInc)
+        global VT = fill(V, numInc)
+        global SzT = fill(Sz_V, numInc)
+        global UT_mag = fill(zeros(length(V)), numInc)
+        global ut_mag_max = zeros(numInc)
+        global Sz_max = zeros(numInc)
+        global Sz_min = zeros(numInc)
+        global Fz_curve = zeros(numInc)
+        global Uz_curve = zeros(numInc)
+        time_curve = zeros(numInc)
+        @inbounds for i in 0:1:(numInc-1)
+            UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
+            VT[i+1] += UT[i+1]
+            UT_mag[i+1] = norm.(UT[i+1])
+            ut_mag_max[i+1] = maximum(UT_mag[i+1])
 
-    F_exp_fea = lerp(Uz_curve, Fz_curve, U_exp)
-    diff_exp = F_exp_fea .- F_exp # Linearly interpolate data 
-
-    V_plot_UF = Vector{Point{2,Float64}}(undef, length(Uz_curve))
-    for i in eachindex(Uz_curve)
-        V_plot_UF[i] = Point{2,Float64}(Uz_curve[i], Fz_curve[i])
-    end
-
-    if iterationCount == 1
-        GLMakie.closeall()
-
-        fig = Figure(size=(1200, 800))
-        global stepStart = incRange[end]
-        ax1 = AxisGeom(fig[1, 1], title="Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-        hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=2, color=UT_mag[end], transparency=false, colormap=Reverse(:Spectral), colorrange=(0.0, maximum(ut_mag_max)))
-        Colorbar(fig[1, 2], hp1.plots[1], label="Displacement magnitude [mm]")
-
-        ax2 = AxisGeom(fig[1, 3], title="Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-        hp2 = meshplot!(ax2, Fb, VT[end]; strokewidth=2, color=SzT[end], transparency=false, colormap=:viridis, colorrange=(minimum(Sz_min), maximum(Sz_max)))
-        Colorbar(fig[1, 4], hp2.plots[1], label="σ [MPa]")
-
-        ax3 = Axis(fig[1, 5], title="Step: $stepStart", aspect=AxisAspect(1), xlabel="Displacement [mm]", ylabel="Force [N]")
-        hlp1 = lines!(ax3, U_exp, F_exp, color=:black, linewidth=5)
-        hlp2 = lines!(ax3, V_plot_UF, color=:red, linewidth=2)
-        Legend(fig[1, 6], [hlp1, hlp2], ["Exp.", "FEA"])
-
-        global hl = hlp2
-
-        hsp = scatter!(ax3, V_plot_UF[stepStart+1], markersize=15, color=:red)
-        global hs = hsp
-
-        hSlider = Slider(fig[2, :], range=incRange, startvalue=stepStart, linewidth=30)
-        on(hSlider.value) do stepIndex
-            hp1[1] = GeometryBasics.Mesh(VT[stepIndex+1], Fb)
-            hp1.color = UT_mag[stepIndex+1]
-
-            hp2[1] = GeometryBasics.Mesh(VT[stepIndex+1], Fb)
-            hp2.color = SzT[stepIndex+1]
-
-            hsp[1] = Point{2,Float64}(Uz_curve[stepIndex+1], Fz_curve[stepIndex+1])
-            ax1.title = "Step: $stepIndex"
-            ax2.title = "Step: $stepIndex"
-            ax3.title = "Step: $stepIndex"
+            Sz = [d[1] for d in DD_stress[i].data]
+            Sz_F = repeat(Sz, inner=6)
+            Sz_Fb = Sz_F[indBoundaryFaces]
+            Sz_V = simplex2vertexdata(Fb, Sz_Fb, V)
+            SzT[i+1] = Sz_V
+            Sz_min[i+1] = minimum(Sz)
+            Sz_max[i+1] = maximum(Sz)
+            Fz = [d[3] for d in DD_force[i].data]
+            Fz_curve[i+1] = -sum(Fz[indNodes_bcPrescribeList_z])
+            Uz_curve[i+1] = mean([u[3] for u in DD_disp[i].data][indNodes_bcPrescribeList_z])
+            time_curve[i+1] = DD_force[i].time
         end
 
-        slidercontrol(hSlider, ax1)
+        min_p = minp([minp(V) for V in VT])
+        max_p = maxp([maxp(V) for V in VT])
 
-        screen = display(GLMakie.Screen(), fig)
-        GLMakie.set_title!(screen, "FEBio example")
-    else
-        hl[1] = V_plot_UF
-        hs[1] = V_plot_UF[stepStart+1]
+        # Evaluate objective 
+        # Fz_exp = lerp(U_exp, F_exp, Uz_curve) 
+        # diff_exp = Fz_curve .- Fz_exp # Linearly interpolate data 
+
+        F_exp_fea = lerp(Uz_curve, Fz_curve, U_exp)
+        diff_exp = F_exp_fea .- F_exp # Linearly interpolate data 
+
+        V_plot_UF = Vector{Point{2,Float64}}(undef, length(Uz_curve))
+        for i in eachindex(Uz_curve)
+            V_plot_UF[i] = Point{2,Float64}(Uz_curve[i], Fz_curve[i])
+        end
+
+        if iterationCount == 1
+            GLMakie.closeall()
+
+            fig = Figure(size=(1200, 800))
+            global stepStart = incRange[end]
+            ax1 = AxisGeom(fig[1, 1], title="Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+            hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=2, color=UT_mag[end], transparency=false, colormap=Reverse(:Spectral), colorrange=(0.0, maximum(ut_mag_max)))
+            Colorbar(fig[1, 2], hp1.plots[1], label="Displacement magnitude [mm]")
+
+            ax2 = AxisGeom(fig[1, 3], title="Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+            hp2 = meshplot!(ax2, Fb, VT[end]; strokewidth=2, color=SzT[end], transparency=false, colormap=:viridis, colorrange=(minimum(Sz_min), maximum(Sz_max)))
+            Colorbar(fig[1, 4], hp2.plots[1], label="σ [MPa]")
+
+            ax3 = Axis(fig[1, 5], title="Step: $stepStart", aspect=AxisAspect(1), xlabel="Displacement [mm]", ylabel="Force [N]")
+            hlp1 = lines!(ax3, U_exp, F_exp, color=:black, linewidth=5)
+            hlp2 = lines!(ax3, V_plot_UF, color=:red, linewidth=2)
+            Legend(fig[1, 6], [hlp1, hlp2], ["Exp.", "FEA"])
+
+            global hl = hlp2
+
+            hsp = scatter!(ax3, V_plot_UF[stepStart+1], markersize=15, color=:red)
+            global hs = hsp
+
+            hSlider = Slider(fig[2, :], range=incRange, startvalue=stepStart, linewidth=30)
+            on(hSlider.value) do stepIndex
+                hp1[1] = GeometryBasics.Mesh(VT[stepIndex+1], Fb)
+                hp1.color = UT_mag[stepIndex+1]
+
+                hp2[1] = GeometryBasics.Mesh(VT[stepIndex+1], Fb)
+                hp2.color = SzT[stepIndex+1]
+
+                hsp[1] = Point{2,Float64}(Uz_curve[stepIndex+1], Fz_curve[stepIndex+1])
+                ax1.title = "Step: $stepIndex"
+                ax2.title = "Step: $stepIndex"
+                ax3.title = "Step: $stepIndex"
+            end
+
+            slidercontrol(hSlider, ax1)
+
+            screen = display(GLMakie.Screen(), fig)
+            GLMakie.set_title!(screen, "FEBio example")
+        else
+            hl[1] = V_plot_UF
+            hs[1] = V_plot_UF[stepStart+1]
+        end
+
+        # saveName = joinpath(febiojl_dir(), "assets", "data", "data_uniaxial_01.csv")
+
+        # function export2csv(saveName, T, U, F)
+        #     results_IO = open(saveName, "w")        
+
+        #     # Create first heading line in CSV file 
+        #     firstLine = """Time, Displacement, Force\n"""
+
+        #     # Write first line 
+        #     write(results_IO, firstLine)            
+
+        #     # Write force
+        #     for i in eachindex(U)
+        #         write(results_IO, @sprintf("%f", T[i]) * ", " 
+        #                         * @sprintf("%f", U[i]) * ", "
+        #                         * @sprintf("%f", F[i]) * "\n")
+        #     end
+        #     close(results_IO)
+        # end
+
+        # export2csv(saveName, time_curve, Uz_curve, Fz_curve)
+
+        global iterationCount += 1
+        return diff_exp
+    else # failed simulation so return NaN vector
+        return fill(NaN, length(U_exp)) 
     end
-
-    # saveName = joinpath(febiojl_dir(), "assets", "data", "data_uniaxial_01.csv")
-
-    # function export2csv(saveName, T, U, F)
-    #     results_IO = open(saveName, "w")        
-
-    #     # Create first heading line in CSV file 
-    #     firstLine = """Time, Displacement, Force\n"""
-
-    #     # Write first line 
-    #     write(results_IO, firstLine)            
-
-    #     # Write force
-    #     for i in eachindex(U)
-    #         write(results_IO, @sprintf("%f", T[i]) * ", " 
-    #                         * @sprintf("%f", U[i]) * ", "
-    #                         * @sprintf("%f", F[i]) * "\n")
-    #     end
-    #     close(results_IO)
-    # end
-
-    # export2csv(saveName, time_curve, Uz_curve, Fz_curve)
-
-    global iterationCount += 1
-    return diff_exp
 end
 
 # True parameters 

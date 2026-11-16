@@ -223,65 +223,66 @@ XML.write(filename_FEB, doc)
 
 #######
 # Run FEBio
-run_febio(filename_FEB,FEBIO_EXEC)
+run_flag = run_febio(filename_FEB, filename_log; febio_path="febio4", run_mode=:external, max_wait_time=30.0, quiet=false)   
+##
+if run_flag == :normal
+    # Import results
+    DD_disp = read_logfile(joinpath(saveDir,filename_disp))
+    DD_stress = read_logfile(joinpath(saveDir,filename_stress))
+    DD_J = read_logfile(joinpath(saveDir,filename_J))
+    numInc = length(DD_disp)
+    incRange = 0:1:numInc-1
 
-#######
-# Import results
-DD_disp = read_logfile(joinpath(saveDir,filename_disp))
-DD_stress = read_logfile(joinpath(saveDir,filename_stress))
-DD_J = read_logfile(joinpath(saveDir,filename_J))
-numInc = length(DD_disp)
-incRange = 0:1:numInc-1
+    # Create time varying vectors
+    UT = fill(V,numInc) 
+    VT = fill(V,numInc)
+    UT_mag = fill(zeros(length(V)),numInc)
+    ut_mag_max = zeros(numInc)
+    @inbounds for i in 0:1:numInc-1    
+        UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
+        VT[i+1] += UT[i+1]
+        UT_mag[i+1] = norm.(UT[i+1])
+        ut_mag_max[i+1] = maximum(UT_mag[i+1]) 
+    end
 
-# Create time varying vectors
-UT = fill(V,numInc) 
-VT = fill(V,numInc)
-UT_mag = fill(zeros(length(V)),numInc)
-ut_mag_max = zeros(numInc)
-@inbounds for i in 0:1:numInc-1    
-    UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
-    VT[i+1] += UT[i+1]
-    UT_mag[i+1] = norm.(UT[i+1])
-    ut_mag_max[i+1] = maximum(UT_mag[i+1]) 
-end
+    min_p = minp([minp(V) for V in VT])
+    max_p = maxp([maxp(V) for V in VT])
 
-min_p = minp([minp(V) for V in VT])
-max_p = maxp([maxp(V) for V in VT])
+    #######
+    # Visualization
+    GLMakie.closeall()
 
-#######
-# Visualization
-GLMakie.closeall()
+    stepStart = incRange[end]
 
-stepStart = incRange[end]
-
-J_E = [d[1] for d in DD_J[stepStart].data]
-J_F = repeat(J_E,inner=6)
-Fs,Vs = separate_vertices(F,VT[stepStart])
-J_Vs = simplex2vertexdata(Fs,J_F)
-J_mean = mean(J_E)
-
-fig = Figure(size=(800,800))
-ax = AxisGeom(fig[1, 1], title = "Step: $stepStart. J = " * @sprintf("%.3f", J_mean), limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-hp = meshplot!(ax, Fs, Vs; strokewidth=2, color=J_Vs , colormap = :viridis, colorrange=(0.0,1.0))
-
-Colorbar(fig[1, 2], hp.plots[1], label = "Volume ratio []", ticks = 0.0:0.125:1.0) 
-
-hSlider = Slider(fig[2, 1], range = incRange, startvalue = stepStart,linewidth=30)
-on(hSlider.value) do stepIndex 
-    J_E = [d[1] for d in DD_J[stepIndex].data]
+    J_E = [d[1] for d in DD_J[stepStart].data]
     J_F = repeat(J_E,inner=6)
-    Fs, Vs = separate_vertices(F, VT[stepIndex+1])
+    Fs,Vs = separate_vertices(F,VT[stepStart])
     J_Vs = simplex2vertexdata(Fs,J_F)
-
-    hp[1] = GeometryBasics.Mesh(Vs, Fs)
-    hp.color = J_Vs    
-
     J_mean = mean(J_E)
-    # hp.color = UT_mag[stepIndex+1]
-    ax.title = "Step: $stepIndex. J = " * @sprintf("%.3f", J_mean)
+
+    fig = Figure(size=(800,800))
+    ax = AxisGeom(fig[1, 1], title = "Step: $stepStart. J = " * @sprintf("%.3f", J_mean), limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+    hp = meshplot!(ax, Fs, Vs; strokewidth=2, color=J_Vs , colormap = :viridis, colorrange=(0.0,1.0))
+
+    Colorbar(fig[1, 2], hp.plots[1], label = "Volume ratio []", ticks = 0.0:0.125:1.0) 
+
+    hSlider = Slider(fig[2, 1], range = incRange, startvalue = stepStart,linewidth=30)
+    on(hSlider.value) do stepIndex 
+        J_E = [d[1] for d in DD_J[stepIndex].data]
+        J_F = repeat(J_E,inner=6)
+        Fs, Vs = separate_vertices(F, VT[stepIndex+1])
+        J_Vs = simplex2vertexdata(Fs,J_F)
+
+        hp[1] = GeometryBasics.Mesh(Vs, Fs)
+        hp.color = J_Vs    
+
+        J_mean = mean(J_E)
+        # hp.color = UT_mag[stepIndex+1]
+        ax.title = "Step: $stepIndex. J = " * @sprintf("%.3f", J_mean)
+    end
+
+    slidercontrol(hSlider,ax)
+
+    screen = display(GLMakie.Screen(), fig)
+    GLMakie.set_title!(screen, "FEBio example")
 end
-
-slidercontrol(hSlider,ax)
-
-screen = display(GLMakie.Screen(), fig)
-GLMakie.set_title!(screen, "FEBio example")

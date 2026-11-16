@@ -298,90 +298,91 @@ XML.write(filename_FEB, doc)
 
 #######
 # Run FEBio
-run_febio(filename_FEB,FEBIO_EXEC)
+run_flag = run_febio(filename_FEB, filename_log; febio_path="febio4", run_mode=:external, max_wait_time=30.0, quiet=false)   
+##
+if run_flag == :normal
+    # Import results
+    DD_disp = read_logfile(joinpath(saveDir,filename_disp))
+    DD_stress = read_logfile(joinpath(saveDir,filename_stress))
+    DD_force = read_logfile(joinpath(saveDir,filename_force))
+    numInc = length(DD_disp)
+    incRange = 0:1:numInc-1
 
-#######
-# Import results
-DD_disp = read_logfile(joinpath(saveDir,filename_disp))
-DD_stress = read_logfile(joinpath(saveDir,filename_stress))
-DD_force = read_logfile(joinpath(saveDir,filename_force))
-numInc = length(DD_disp)
-incRange = 0:1:numInc-1
-
-F = element2faces(E)
-indBoundaryFaces = boundaryfaceindices(F)
-Fb = F[indBoundaryFaces]
-# Fbs, Vs = separate_vertices(Fb,V)
-S1 = [d[1] for d in DD_stress[numInc-1].data] 
-S1_F = repeat(S1,inner=6)
-S1_Fb = S1_F[indBoundaryFaces]
-S1_V = simplex2vertexdata(Fb, S1_Fb,V)
-
-# Create z-force curve data 
-Fz_curve = zeros(numInc)
-time_curve = zeros(numInc)
-for i in 0:1:numInc-1    
-    Fz = [d[3] for d in DD_force[i].data]
-    Fz_curve[i+1] = sum(Fz[indicesTopNodes])
-    time_curve[i+1] = DD_force[i].time
-end
-
-#######
-# Visualization
-
-# Create time varying vectors
-UT = fill(V,numInc) 
-VT = fill(V,numInc)
-S1T = fill(S1_V,numInc)
-UT_mag = fill(zeros(length(V)),numInc)
-ut_mag_max = zeros(numInc)
-S1_max = zeros(numInc)
-S1_min = zeros(numInc)
-@inbounds for i in 0:1:numInc-1    
-    UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
-    VT[i+1] += UT[i+1]
-    UT_mag[i+1] = norm.(UT[i+1])
-    ut_mag_max[i+1] = maximum(UT_mag[i+1]) 
-
-    S1 = [d[1] for d in DD_stress[i].data]
+    F = element2faces(E)
+    indBoundaryFaces = boundaryfaceindices(F)
+    Fb = F[indBoundaryFaces]
+    # Fbs, Vs = separate_vertices(Fb,V)
+    S1 = [d[1] for d in DD_stress[numInc-1].data] 
     S1_F = repeat(S1,inner=6)
     S1_Fb = S1_F[indBoundaryFaces]
-    S1_V = simplex2vertexdata(Fb, S1_Fb, V)
-    S1T[i+1] = S1_V
-    S1_min[i+1] = minimum(S1)
-    S1_max[i+1] = maximum(S1)
+    S1_V = simplex2vertexdata(Fb, S1_Fb,V)
+
+    # Create z-force curve data 
+    Fz_curve = zeros(numInc)
+    time_curve = zeros(numInc)
+    for i in 0:1:numInc-1    
+        Fz = [d[3] for d in DD_force[i].data]
+        Fz_curve[i+1] = sum(Fz[indicesTopNodes])
+        time_curve[i+1] = DD_force[i].time
+    end
+
+    #######
+    # Visualization
+
+    # Create time varying vectors
+    UT = fill(V,numInc) 
+    VT = fill(V,numInc)
+    S1T = fill(S1_V,numInc)
+    UT_mag = fill(zeros(length(V)),numInc)
+    ut_mag_max = zeros(numInc)
+    S1_max = zeros(numInc)
+    S1_min = zeros(numInc)
+    @inbounds for i in 0:1:numInc-1    
+        UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
+        VT[i+1] += UT[i+1]
+        UT_mag[i+1] = norm.(UT[i+1])
+        ut_mag_max[i+1] = maximum(UT_mag[i+1]) 
+
+        S1 = [d[1] for d in DD_stress[i].data]
+        S1_F = repeat(S1,inner=6)
+        S1_Fb = S1_F[indBoundaryFaces]
+        S1_V = simplex2vertexdata(Fb, S1_Fb, V)
+        S1T[i+1] = S1_V
+        S1_min[i+1] = minimum(S1)
+        S1_max[i+1] = maximum(S1)
+    end
+
+    min_p = minp([minp(V) for V in VT])
+    max_p = maxp([maxp(V) for V in VT])
+
+
+    fig2 = Figure(size=(1200, 800))
+    stepStart = incRange[end]
+    ax1 = AxisGeom(fig2[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+    hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=1, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral), colorrange=(0.0, maximum(ut_mag_max)))
+    Colorbar(fig2[1, 2], hp1.plots[1], label = "Displacement magnitude [mm]") 
+
+    ax2 = AxisGeom(fig2[1, 3], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+    hp2 = meshplot!(ax2, Fb, VT[end]; strokewidth=1, color=S1T[end], transparency=false, colormap = :viridis, colorrange=(minimum(S1_min), maximum(S1_max)/10.0))
+    Colorbar(fig2[1, 4], hp2.plots[1], label = "σ [MPa]") 
+
+    ax3 = Axis(fig2[1, 5], title = "Step: $stepStart", aspect = AxisAspect(1), xlabel="Time [s]", ylabel="Force [N]")
+    lines!(ax3, time_curve, Fz_curve, color=:red, linewidth=3)
+    hp3 = scatter!(ax3, Point{2,Float64}(time_curve[stepStart+1], Fz_curve[stepStart+1]), markersize=15, color=:red)
+    hSlider2 = Slider(fig2[2, :], range = incRange, startvalue = stepStart,linewidth=30)
+    on(hSlider2.value) do stepIndex 
+        hp1[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
+        hp1.color = UT_mag[stepIndex+1]
+
+        hp2[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
+        hp2.color = S1T[stepIndex+1]
+            
+        hp3[1] = Point{2,Float64}(time_curve[stepIndex+1], Fz_curve[stepIndex+1])
+        ax1.title = "Step: $stepIndex"
+        ax2.title = "Step: $stepIndex"
+        ax3.title = "Step: $stepIndex"
+    end
+
+    screen = display(GLMakie.Screen(), fig2)
+    GLMakie.set_title!(screen, "FEBio example")
 end
-
-min_p = minp([minp(V) for V in VT])
-max_p = maxp([maxp(V) for V in VT])
-
-
-fig2 = Figure(size=(1200, 800))
-stepStart = incRange[end]
-ax1 = AxisGeom(fig2[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=1, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral), colorrange=(0.0, maximum(ut_mag_max)))
-Colorbar(fig2[1, 2], hp1.plots[1], label = "Displacement magnitude [mm]") 
-
-ax2 = AxisGeom(fig2[1, 3], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-hp2 = meshplot!(ax2, Fb, VT[end]; strokewidth=1, color=S1T[end], transparency=false, colormap = :viridis, colorrange=(minimum(S1_min), maximum(S1_max)/10.0))
-Colorbar(fig2[1, 4], hp2.plots[1], label = "σ [MPa]") 
-
-ax3 = Axis(fig2[1, 5], title = "Step: $stepStart", aspect = AxisAspect(1), xlabel="Time [s]", ylabel="Force [N]")
-lines!(ax3, time_curve, Fz_curve, color=:red, linewidth=3)
-hp3 = scatter!(ax3, Point{2,Float64}(time_curve[stepStart+1], Fz_curve[stepStart+1]), markersize=15, color=:red)
-hSlider2 = Slider(fig2[2, :], range = incRange, startvalue = stepStart,linewidth=30)
-on(hSlider2.value) do stepIndex 
-    hp1[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
-    hp1.color = UT_mag[stepIndex+1]
-
-    hp2[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
-    hp2.color = S1T[stepIndex+1]
-        
-    hp3[1] = Point{2,Float64}(time_curve[stepIndex+1], Fz_curve[stepIndex+1])
-    ax1.title = "Step: $stepIndex"
-    ax2.title = "Step: $stepIndex"
-    ax3.title = "Step: $stepIndex"
-end
-
-screen = display(GLMakie.Screen(), fig2)
-GLMakie.set_title!(screen, "FEBio example")

@@ -4,7 +4,9 @@ version = "0.1.0"
 authors = ["Kevin-Mattheus-Moerman <kevin.moerman@gmail.com>"]
 
 [deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 XML = "72c71f33-b9b6-44de-8c94-c961784809e2"
 
 [compat]
+Dates = "1.11.0"
 XML = "0.4.2"
