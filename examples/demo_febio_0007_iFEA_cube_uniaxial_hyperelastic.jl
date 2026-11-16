@@ -10,7 +10,7 @@ using LeastSquaresOptim # Used for inverse FEA optimisation
 
 ######
 # Set FEBio exec path or name
-const FEBIO_EXEC = "febio4" # FEBio executable
+FEBIO_EXEC = "febio4" # FEBio executable
 
 # Function to import experimental data 
 function import_csv(loadName)
@@ -289,7 +289,7 @@ function objective_FEA(x)
 
     #######
     # Run FEBio
-    run_flag = run_febio(filename_FEB, filename_log; febio_path="febio4", run_mode=:external, max_wait_time=30.0, quiet=false)   
+    run_flag = run_febio(filename_FEB, filename_log; febio_path=FEBIO_EXEC, run_mode=:external, max_wait_time=30.0, quiet=false)   
     ##
     if run_flag == :normal
         # Import results

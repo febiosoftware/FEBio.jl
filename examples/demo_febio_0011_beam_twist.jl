@@ -12,7 +12,7 @@ GLMakie.closeall()
 
 ######
 # Set FEBio exec path or name
-const FEBIO_EXEC = "febio4" # FEBio executable
+FEBIO_EXEC = "febio4" # FEBio executable
 
 ###### 
 # Control parameters 
@@ -246,7 +246,7 @@ XML.write(filename_FEB, doc)
 
 #######
 # Run FEBio
-run_flag = run_febio(filename_FEB, filename_log; febio_path="febio4", run_mode=:external, max_wait_time=30.0, quiet=false)   
+run_flag = run_febio(filename_FEB, filename_log; febio_path=FEBIO_EXEC, run_mode=:external, max_wait_time=30.0, quiet=false)   
 ##
 if run_flag == :normal
     # Import results

@@ -9,7 +9,7 @@ using Printf
 
 ######
 # Set FEBio exec path or name
-const FEBIO_EXEC = "febio4" # FEBio executable
+FEBIO_EXEC = "febio4" # FEBio executable
 
 ###### 
 # Control parameters 
@@ -18,7 +18,7 @@ pointSpacing = 2.0
 strainApplied = 0.5 # Equivalent linear strain
 loadingOption = "compression" # "tension" or "compression"
 
-E_youngs = 1
+E_youngs = 1.0
 ν = 0.4
 
 ###### 
@@ -205,7 +205,7 @@ XML.write(filename_FEB, doc)
 
 #######
 # Run FEBio
-run_flag = run_febio(filename_FEB, filename_log; febio_path="febio4", run_mode=:external, max_wait_time=30.0, quiet=false)   
+run_flag = run_febio(filename_FEB, filename_log; febio_path=FEBIO_EXEC, run_mode=:external, max_wait_time=30.0, quiet=false)   
 
 ##
 if run_flag == :normal
